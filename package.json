@@ -1,0 +1,37 @@
+{
+	"name": "ttdl-viewer",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun scripts/dev.ts",
+		"dev:server": "bun --hot src/server/index.ts",
+		"dev:web": "vite",
+		"build": "vite build && bun scripts/check-offline.ts",
+		"start": "NODE_ENV=production bun src/server/index.ts",
+		"fixtures": "bun scripts/make-fixtures.ts",
+		"check-offline": "bun scripts/check-offline.ts",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check src/ scripts/",
+		"lint:fix": "biome check --write src/ scripts/",
+		"format": "biome format --write src/ scripts/"
+	},
+	"dependencies": {
+		"@tanstack/react-query": "^5",
+		"@tanstack/react-virtual": "^3",
+		"react": "^19",
+		"react-dom": "^19",
+		"wouter": "^3",
+		"zustand": "^5"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.14",
+		"@types/bun": "latest",
+		"@types/react": "^19",
+		"@types/react-dom": "^19",
+		"@vitejs/plugin-react": "^4",
+		"typescript": "^5",
+		"vite": "^6"
+	}
+}

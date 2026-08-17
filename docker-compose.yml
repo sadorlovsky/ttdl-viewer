@@ -1,0 +1,41 @@
+services:
+  ttdl-viewer:
+    build: .
+    # Or, once you have pushed an image somewhere your NAS can reach:
+    # image: ghcr.io/sadorlovsky/ttdl-viewer:latest
+    container_name: ttdl-viewer
+    restart: unless-stopped
+
+    volumes:
+      # Left side: where ttdl writes its archives. Right side must stay /archives, which is what
+      # TTDL_VIEWER_ROOT points at inside the container.
+      #
+      # :ro is the point. The viewer never writes to an archive by design; mounting read-only
+      # turns that from a promise into something the kernel enforces, so no bug in here can ever
+      # damage a download that took hours to fetch.
+      - ${TTDL_ARCHIVES:-./downloads}:/archives:ro
+
+      # Optional: the TikTok data export, for "recently liked" ordering. Also read-only.
+      # - ${TTDL_EXPORT:-./export}:/export:ro
+
+    environment:
+      # - TTDL_VIEWER_LIKES=/export/Likes and Favorites
+
+    ports:
+      # Bind to the host's loopback only, so the viewer is reachable from the NAS itself and over
+      # a VPN or SSH tunnel, but is not sitting on the LAN. Change to "4174:4174" to expose it to
+      # your whole local network — there is no authentication in front of it, so only do that on a
+      # network you trust.
+      - "127.0.0.1:4174:4174"
+
+    # Synology shares are often owned by a specific DSM user rather than being world-readable. If
+    # the container starts but reports zero archives, the mount is likely unreadable to the `bun`
+    # user — find the owner with `ls -ln` on the share and set it here as "UID:GID".
+    # user: "1026:100"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4174/api/stats"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

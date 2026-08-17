@@ -1,0 +1,160 @@
+.wrap {
+	position: relative;
+	height: 100dvh;
+	overflow: hidden;
+	background: #000;
+}
+
+.loading {
+	display: grid;
+	place-items: center;
+	height: 100dvh;
+	color: var(--text-3);
+}
+
+.feed {
+	height: 100%;
+	overflow-y: scroll;
+	scroll-snap-type: y mandatory;
+	overscroll-behavior-y: contain;
+	scrollbar-width: none;
+}
+
+.feed::-webkit-scrollbar {
+	display: none;
+}
+
+.slot {
+	height: 100dvh;
+	scroll-snap-align: start;
+	/* One post per fling, the way the app this imitates behaves. */
+	scroll-snap-stop: always;
+}
+
+/* A scrim under the caption so a bright video does not swallow it. */
+.scrim {
+	position: absolute;
+	inset: auto 0 0;
+	height: 34%;
+	background: var(--scrim);
+	pointer-events: none;
+	z-index: 5;
+}
+
+.chrome {
+	position: absolute;
+	inset: 0 0 auto;
+	z-index: var(--z-rail);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	/* Clears the carousel's story-segment bar, which lives above it. */
+	padding: 24px 16px 14px;
+	background: linear-gradient(rgb(0 0 0 / 0.4), transparent);
+	pointer-events: none;
+}
+
+.chrome > * {
+	pointer-events: auto;
+}
+
+.chromeRight {
+	display: flex;
+	gap: 6px;
+}
+
+.back,
+.chromeButton {
+	display: grid;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background: rgb(0 0 0 / 0.35);
+	color: #fff;
+	backdrop-filter: blur(6px);
+	transition: background var(--dur-fast) var(--ease);
+}
+
+.back:hover,
+.chromeButton:hover {
+	background: rgb(0 0 0 / 0.6);
+}
+
+.chromeButton[data-on] {
+	background: rgb(255 255 255 / 0.9);
+	color: #000;
+}
+
+.position {
+	position: absolute;
+	top: 70px;
+	right: 16px;
+	z-index: var(--z-overlay);
+	color: rgb(255 255 255 / 0.5);
+	font-size: 11.5px;
+	font-variant-numeric: tabular-nums;
+	text-shadow: var(--shadow-text);
+	pointer-events: none;
+}
+
+.drawer {
+	position: absolute;
+	inset: 0 0 0 auto;
+	z-index: var(--z-modal);
+	display: flex;
+	flex-direction: column;
+	width: min(460px, 100%);
+	background: rgb(10 10 10 / 0.97);
+	border-left: 1px solid var(--line);
+	backdrop-filter: blur(12px);
+}
+
+.drawerHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--line);
+}
+
+.drawerHead h2 {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.drawerHead button {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	color: var(--text-3);
+	font-size: 20px;
+	line-height: 1;
+}
+
+.drawerHead button:hover {
+	background: var(--surface-2);
+	color: var(--text);
+}
+
+.drawerBody {
+	flex: 1;
+	margin: 0;
+	padding: 16px;
+	overflow: auto;
+	color: var(--text-2);
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.drawerEmpty {
+	display: grid;
+	gap: 12px;
+	justify-items: start;
+	padding: 20px 16px;
+	color: var(--text-3);
+	font-size: 13px;
+}

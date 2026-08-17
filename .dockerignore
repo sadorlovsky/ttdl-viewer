@@ -1,0 +1,15 @@
+node_modules
+dist
+fixtures
+.git
+.github
+tests
+e2e
+test-results
+playwright-report
+*.sqlite*
+.DS_Store
+README.md
+docker-compose.yml
+Dockerfile
+.dockerignore

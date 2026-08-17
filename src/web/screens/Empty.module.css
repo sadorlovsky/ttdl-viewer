@@ -1,0 +1,60 @@
+.empty {
+	display: grid;
+	align-content: center;
+	justify-items: start;
+	gap: 12px;
+	min-height: 100dvh;
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 32px 24px;
+}
+
+.title {
+	font-size: 22px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+.body {
+	color: var(--text-3);
+	line-height: 1.55;
+}
+
+.action {
+	margin-top: 4px;
+	padding: 8px 16px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-2);
+	font-size: 14px;
+	font-weight: 500;
+	transition: background var(--dur-fast) var(--ease);
+}
+
+.action:hover {
+	background: var(--surface-3);
+}
+
+/*
+ * An error state that does not name the tool which fills the gap is wasting the one thing it
+ * knows. Every empty state here ends in a command the user can actually run.
+ */
+.command {
+	margin-top: 4px;
+	padding: 10px 14px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--surface);
+	color: var(--text-2);
+	font-family: var(--font-mono);
+	font-size: 12.5px;
+	overflow-x: auto;
+	white-space: pre;
+	max-width: 100%;
+}
+
+.path {
+	color: var(--text-4);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	word-break: break-all;
+}

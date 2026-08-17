@@ -1,0 +1,14 @@
+.avatar {
+	display: grid;
+	place-items: center;
+	flex: none;
+	border-radius: 50%;
+	font-weight: 600;
+	line-height: 1;
+	user-select: none;
+	color: hsl(var(--h) 70% 92%);
+	/* Two stops rather than a flat fill: at 48px a circle of solid colour reads as a placeholder,
+	   a gradient reads as an image. */
+	background: linear-gradient(145deg, hsl(var(--h) 58% 42%), hsl(calc(var(--h) + 35) 55% 26%));
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}

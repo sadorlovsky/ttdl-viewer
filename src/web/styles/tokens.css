@@ -1,0 +1,59 @@
+/*
+ * The design system is this file.
+ *
+ * The palette is deliberately near-monochrome: the accent only reads as "short-video app" because
+ * it is rare — it appears on the active tab underline, the progress fill, and the focus ring, and
+ * essentially nowhere else.
+ */
+:root {
+	color-scheme: dark;
+
+	--bg: #000;
+	--surface: #121212;
+	--surface-2: #1c1c1c;
+	--surface-3: #262626;
+
+	--text: #fff;
+	--text-2: rgb(255 255 255 / 0.72);
+	--text-3: rgb(255 255 255 / 0.5);
+	--text-4: rgb(255 255 255 / 0.32);
+
+	--line: rgb(255 255 255 / 0.12);
+	--line-strong: rgb(255 255 255 / 0.24);
+
+	--accent: #fe2c55;
+	--accent-2: #25f4ee;
+	--warn: #ffb400;
+
+	--scrim: linear-gradient(transparent, rgb(0 0 0 / 0.55));
+	--shadow-text: 0 1px 3px rgb(0 0 0 / 0.6);
+
+	/* No network means no webfont. The system stack is the only honest choice. */
+	--font:
+		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+	--radius: 8px;
+	--radius-lg: 12px;
+	--radius-pill: 999px;
+
+	--rail-gap: 20px;
+	--tile-gap: 2px;
+
+	--ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+	--dur-fast: 120ms;
+	--dur: 180ms;
+	--dur-slow: 320ms;
+
+	--z-overlay: 10;
+	--z-rail: 20;
+	--z-modal: 100;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--dur-fast: 1ms;
+		--dur: 1ms;
+		--dur-slow: 1ms;
+	}
+}

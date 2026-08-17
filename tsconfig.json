@@ -1,0 +1,31 @@
+{
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"target": "ESNext",
+		"module": "Preserve",
+		"moduleDetection": "force",
+		"jsx": "react-jsx",
+
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"resolveJsonModule": true,
+
+		"strict": true,
+		"skipLibCheck": true,
+		"noFallthroughCasesInSwitch": true,
+		// The indexer is built out of "this file may not exist" — unchecked indexing would hide it.
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/*"]
+		},
+
+		"types": ["bun", "vite/client"]
+	},
+
+	"exclude": ["dist", "node_modules", "fixtures"]
+}
