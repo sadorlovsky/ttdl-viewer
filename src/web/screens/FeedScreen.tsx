@@ -900,14 +900,23 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 						)}
 
 						<div className={styles.position}>
-							{/*
-							 * Once there are no more pages, what is loaded is all that can be reached —
-							 * including when the sequence was cut short by a cursor whose post ttdl
-							 * removed. Showing the view's total then would promise posts that no longer
-							 * arrive.
-							 */}
-							{activeIndex + 1} /{" "}
-							{hasNextPage ? (posts.data?.pages[0]?.total ?? items.length) : items.length}
+							{postId === activePost.id ? (
+								<>
+									{/*
+									 * Once there are no more pages, what is loaded is all that can be
+									 * reached — including when the sequence was cut short by a cursor
+									 * whose post ttdl removed. Showing the view's total then would
+									 * promise posts that no longer arrive.
+									 */}
+									{activeIndex + 1} /{" "}
+									{hasNextPage ? (posts.data?.pages[0]?.total ?? items.length) : items.length}
+								</>
+							) : (
+								// A deep link renders whatever slide zero currently is until the real
+								// target is located — a live number here would count a post that is
+								// not the one on screen.
+								"…"
+							)}
 						</div>
 					</>
 				)}
