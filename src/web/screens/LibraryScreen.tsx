@@ -53,9 +53,9 @@ function ArchiveCard({ archive }: { archive: Archive }) {
 					)}
 				</div>
 				<p className={styles.cardFacts}>{facts.join(" · ")}</p>
-				{archive.kind === "list" && archive.authors.length > 1 && (
+				{archive.kind === "list" && archive.authorCount > 1 && (
 					<p className={styles.cardSub}>
-						{archive.authors.length} authors
+						{archive.authorCount} authors
 						{archive.source ? ` · from ${archive.source}` : ""}
 					</p>
 				)}

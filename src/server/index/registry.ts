@@ -135,6 +135,7 @@ function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArc
 		displayPath: scan.dir,
 		counts,
 		authors,
+		authorCount: authors.length,
 		primaryAuthor: kind === "profile" ? (authors[0] ?? null) : null,
 		card,
 		dateRange: newest && oldest ? { first: oldest.createdAt, last: newest.createdAt } : null,

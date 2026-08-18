@@ -126,7 +126,7 @@ function ArchiveHeader({
 						<div className={styles.names}>
 							<h1 className={styles.handle}>{archive.name}</h1>
 							<p className={styles.nickname}>
-								{archive.authors.length} authors
+								{archive.authorCount} authors
 								{archive.source ? ` · built from ${archive.source}` : ""}
 							</p>
 						</div>
@@ -156,7 +156,7 @@ function ArchiveHeader({
 				</p>
 			)}
 
-			{archive.kind === "list" && archive.authors.length > 1 && (
+			{archive.kind === "list" && archive.authorCount > 1 && (
 				<div className={styles.chips}>
 					{archive.authors.map((a) => {
 						const on = selected.has(a.handle);

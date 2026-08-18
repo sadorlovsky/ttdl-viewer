@@ -50,7 +50,11 @@ export function apiRoutes(
 			});
 		},
 
-		"/api/archives": () => json(registry.list().map((a) => a.archive)),
+		// Full author objects are dropped here: a list archive can carry thousands of them, and
+		// the library grid only ever reads `authorCount`. The one archive's own page fetches the
+		// real array from the route below, where a few thousand more bytes are the cost of a
+		// page you're already committed to loading.
+		"/api/archives": () => json(registry.list().map((a) => ({ ...a.archive, authors: [] }))),
 
 		"/api/archives/:archiveId": (request) => {
 			const indexed = archiveOf(registry, request);

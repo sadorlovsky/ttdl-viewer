@@ -85,8 +85,15 @@ export interface Archive {
 	source: string | null;
 	displayPath: string;
 	counts: ArchiveCounts;
-	/** One for a profile archive, many for a list. Sorted by post count, descending. */
+	/**
+	 * One for a profile archive, many for a list. Sorted by post count, descending.
+	 *
+	 * Empty on `/api/archives` — a list archive can carry thousands of authors, and the library
+	 * grid only ever shows the count. `authorCount` below is the cheap version of the same fact;
+	 * the full array is worth its weight only on the one archive's own page, from `/api/archives/:id`.
+	 */
 	authors: AuthorSummary[];
+	authorCount: number;
 	primaryAuthor: AuthorSummary | null;
 	/** ttdl's author card, when `get` recorded one. A list archive never has one. */
 	card: ProfileCard | null;
