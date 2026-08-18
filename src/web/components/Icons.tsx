@@ -288,6 +288,21 @@ export const CodeIcon = ({ size = 20, className }: IconProps) => (
 	</svg>
 );
 
+/** A generic verified badge: circle and check, drawn in the same stroke weight as the rest of the
+ *  set — not a copy of any platform's mark. Replaces a bare Unicode "✓" next to the handle. */
+export const VerifiedIcon = ({ size = 16, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.8" />
+		<path
+			d="m7.7 12.3 2.7 2.7 5.9-6.3"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
 export const WarnIcon = ({ size = 16, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path

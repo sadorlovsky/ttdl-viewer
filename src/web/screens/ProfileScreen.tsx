@@ -6,14 +6,18 @@ import type { Archive, Post, PostQuery } from "../../shared/types.ts";
 import { flatten, totalOf, useArchive, usePosts } from "../api/client.ts";
 import { Avatar } from "../components/Avatar.tsx";
 import { FilterBar } from "../components/FilterBar.tsx";
-import { BackIcon } from "../components/Icons.tsx";
+import { BackIcon, VerifiedIcon } from "../components/Icons.tsx";
 import { PostTile } from "../components/PostTile.tsx";
-import { bytes, date, dateRange } from "../lib/format.ts";
+import { bytes, dateRange } from "../lib/format.ts";
 import empty from "./Empty.module.css";
 import styles from "./ProfileScreen.module.css";
 
 /** Mirrors `--tile-gap`, which the row's grid uses; the estimate has to subtract the same gutters. */
 const TILE_GAP = 2;
+
+/** The header identity mark. Also the width of `.layout`'s fixed grid column in the module CSS —
+ *  keep the two in step. */
+const AVATAR_SIZE = 112;
 
 /** Column count by width, mirroring how short-video apps step from 3-up on phones to 6-up wide. */
 function columnsFor(width: number): number {
@@ -77,26 +81,26 @@ function ArchiveHeader({
 	const { counts } = archive;
 	const selected = new Set(query.author ?? []);
 
-	const facts = [
-		`${counts.posts.toLocaleString()} posts`,
-		counts.videos > 0 ? `${counts.videos.toLocaleString()} videos` : null,
-		counts.carousels > 0 ? `${counts.carousels.toLocaleString()} carousels` : null,
+	const isStat = (
+		s: { label: string; value: number } | null,
+	): s is { label: string; value: number } => s !== null;
+
+	// Counted from the files on disk — true right now, whatever ttdl last saw.
+	const countedStats = [
+		{ label: "Posts", value: counts.posts },
+		counts.videos > 0 ? { label: "Videos", value: counts.videos } : null,
+		counts.carousels > 0 ? { label: "Carousels", value: counts.carousels } : null,
+	].filter(isStat);
+
+	const countedCaption = [
 		archive.bytes > 0 ? bytes(archive.bytes) : null,
 		dateRange(archive.dateRange) || null,
-	].filter(Boolean);
+	]
+		.filter(Boolean)
+		.join(" · ");
 
 	const author = archive.primaryAuthor;
 	const card = archive.card;
-	// Counts from the card are dated, and shown as dated. The archive's own facts above are not:
-	// those are true of the files right now, while these were true on the day ttdl asked.
-	const recorded = card
-		? [
-				card.stats.followers !== null ? `${card.stats.followers.toLocaleString()} followers` : null,
-				card.stats.hearts !== null ? `${card.stats.hearts.toLocaleString()} likes` : null,
-			]
-				.filter(Boolean)
-				.join(" · ")
-		: "";
 
 	return (
 		<header className={styles.header}>
@@ -104,16 +108,29 @@ function ArchiveHeader({
 				<BackIcon />
 			</Link>
 
-			<div className={styles.identity}>
+			{/*
+			 * A grid rather than a stack of flex rows, because the avatar's placement genuinely
+			 * differs by width: beside just the name on a phone (the identity row it always was),
+			 * beside the whole column — name, bio, stats — once there's room to spare on desktop.
+			 * Same children, same order; only `.layout`'s grid-template-areas move under the
+			 * existing 520px breakpoint, so there's no separate mobile/desktop markup to keep in
+			 * sync.
+			 */}
+			<div className={styles.layout}>
 				{archive.kind === "profile" && author ? (
 					<>
-						<Avatar seed={author.avatar} src={author.avatarUrl} size={96} />
+						<Avatar
+							seed={author.avatar}
+							src={author.avatarUrl}
+							size={AVATAR_SIZE}
+							className={styles.avatarCell}
+						/>
 						<div className={styles.names}>
 							<h1 className={styles.handle}>
 								@{author.handle}
 								{card?.verified && (
 									<span className={styles.verified} title="Verified when this card was taken">
-										✓
+										<VerifiedIcon size={15} />
 									</span>
 								)}
 							</h1>
@@ -122,7 +139,11 @@ function ArchiveHeader({
 					</>
 				) : (
 					<>
-						<Avatar seed={{ letter: archive.name.slice(0, 1).toUpperCase(), hue: 210 }} size={96} />
+						<Avatar
+							seed={{ letter: archive.name.slice(0, 1).toUpperCase(), hue: 210 }}
+							size={AVATAR_SIZE}
+							className={styles.avatarCell}
+						/>
 						<div className={styles.names}>
 							<h1 className={styles.handle}>{archive.name}</h1>
 							<p className={styles.nickname}>
@@ -132,29 +153,32 @@ function ArchiveHeader({
 						</div>
 					</>
 				)}
+
+				{card?.signature && <p className={styles.bio}>{card.signature}</p>}
+				{card?.bioLink && <p className={styles.bioLink}>{card.bioLink}</p>}
+
+				{/* Counted from the files on disk — true right now, whatever ttdl last saw about the
+				    account itself. The archive doesn't track who anyone follows or how many likes a
+				    post has; that belongs to the platform, not to a folder of downloaded files. */}
+				{countedStats.length > 0 && (
+					<div className={styles.stats}>
+						{countedStats.map((stat) => (
+							<div className={styles.stat} key={stat.label}>
+								<span className={styles.statValue}>{stat.value.toLocaleString()}</span>
+								<span className={styles.statLabel}>{stat.label}</span>
+							</div>
+						))}
+					</div>
+				)}
+				{countedCaption && <p className={styles.caption}>{countedCaption}</p>}
+
+				{counts.missing > 0 && (
+					<p className={styles.gap}>
+						ttdl could not fetch {counts.missing} more {counts.missing === 1 ? "post" : "posts"}
+						{counts.withoutInfo > 0 ? `, and ${counts.withoutInfo} here have no metadata` : ""}
+					</p>
+				)}
 			</div>
-
-			{card?.signature && <p className={styles.bio}>{card.signature}</p>}
-			{card?.bioLink && <p className={styles.bioLink}>{card.bioLink}</p>}
-
-			{/*
-			 * Two lines rather than one, because they are two different kinds of claim. The facts
-			 * are counted from the files on disk and are true now; the card was true on the day
-			 * ttdl asked, and a follower count with no date on it is simply false a year later.
-			 */}
-			<p className={styles.facts}>{facts.join(" · ")}</p>
-			{card && recorded && (
-				<p className={styles.recorded}>
-					{recorded} · recorded {date(card.fetchedAt)}
-				</p>
-			)}
-
-			{counts.missing > 0 && (
-				<p className={styles.gap}>
-					ttdl could not fetch {counts.missing} more {counts.missing === 1 ? "post" : "posts"}
-					{counts.withoutInfo > 0 ? `, and ${counts.withoutInfo} here have no metadata` : ""}
-				</p>
-			)}
 
 			{archive.kind === "list" && archive.authorCount > 1 && (
 				<div className={styles.chips}>

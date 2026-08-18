@@ -34,13 +34,46 @@
 	color: var(--text);
 }
 
-.identity {
-	display: flex;
-	align-items: center;
-	gap: 20px;
+/*
+ * The whole header body as one grid, not a flex stack: the avatar's placement genuinely differs
+ * by width, sitting beside just the name on a phone but beside the full name/bio/stats column
+ * once there's room on desktop. Same six children in the same DOM order either way — only which
+ * grid-template-areas rows the "avatar" cell spans changes, under the app's one existing 520px
+ * breakpoint (see the Caption and ActionRail modules for the same threshold).
+ */
+.layout {
+	display: grid;
+	grid-template-columns: 112px 1fr;
+	column-gap: 24px;
+	align-items: start;
+	grid-template-areas:
+		"avatar names"
+		"avatar bio"
+		"avatar bioLink"
+		"avatar stats"
+		"avatar caption"
+		"avatar gap";
+}
+
+@media (max-width: 520px) {
+	.layout {
+		align-items: center;
+		grid-template-areas:
+			"avatar names"
+			"bio bio"
+			"bioLink bioLink"
+			"stats stats"
+			"caption caption"
+			"gap gap";
+	}
+}
+
+.avatarCell {
+	grid-area: avatar;
 }
 
 .names {
+	grid-area: names;
 	min-width: 0;
 }
 
@@ -55,18 +88,20 @@
 
 .nickname {
 	margin-top: 2px;
-	color: var(--text-3);
-	font-size: 14px;
+	color: var(--text-2);
+	font-size: 16px;
+	font-weight: 500;
 }
 
 .verified {
+	display: inline-flex;
 	margin-left: 6px;
 	color: var(--accent-2);
-	font-size: 0.7em;
 	vertical-align: middle;
 }
 
 .bio {
+	grid-area: bio;
 	margin-top: 14px;
 	max-width: 62ch;
 	color: var(--text-2);
@@ -76,6 +111,7 @@
 }
 
 .bioLink {
+	grid-area: bioLink;
 	margin-top: 4px;
 	color: var(--text-3);
 	font-size: 13px;
@@ -85,22 +121,65 @@
 	user-select: all;
 }
 
-.recorded {
-	margin-top: 2px;
-	color: var(--text-3);
-	font-size: 13px;
+/*
+ * The counted-now stat row (Posts / Videos / Carousels) — a horizontal strip of number-over-label
+ * cells rather than a run-on sentence, so the archive's own shape reads at a glance. Nothing here
+ * comes from the platform: follower and like counts belong to the account, not to a folder of
+ * downloaded files, so this row only ever shows what was actually counted from disk.
+ */
+.stats {
+	grid-area: stats;
+	display: flex;
+	flex-wrap: wrap;
+	row-gap: 12px;
+	margin-top: 16px;
 }
 
-.facts {
-	margin-top: 16px;
-	color: var(--text-2);
-	font-size: 14px;
+.stat {
+	padding-right: 20px;
+	margin-right: 20px;
+	border-right: 1px solid var(--line);
+}
+
+.stat:last-child {
+	padding-right: 0;
+	margin-right: 0;
+	border-right: none;
+}
+
+.statValue {
+	display: block;
+	color: var(--text);
+	font-size: 19px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
 	font-variant-numeric: tabular-nums;
 }
 
-.gap {
-	margin-top: 6px;
+.statLabel {
+	display: block;
+	margin-top: 2px;
 	color: var(--text-4);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.caption {
+	grid-area: caption;
+	margin-top: 8px;
+	color: var(--text-3);
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Missing-Frame Amber: the archive is not whole, the same fact the library card's own gap notice
+   marks the same way (DESIGN.md, Colors → Tertiary). Absence, never error. */
+.gap {
+	grid-area: gap;
+	margin-top: 6px;
+	color: var(--warn);
 	font-size: 12.5px;
 }
 
