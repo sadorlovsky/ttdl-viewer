@@ -98,6 +98,7 @@
 	background: rgb(254 44 85 / 0.14);
 	color: var(--text);
 	font-size: 12.5px;
+	animation: chip-in var(--dur) var(--ease) both;
 }
 
 .remove {
@@ -111,10 +112,24 @@
 	color: var(--text-3);
 	font-size: 12.5px;
 	transition: color var(--dur-fast) var(--ease);
+	animation: fade-in var(--dur) var(--ease) both;
 }
 
 .clearAll:hover {
 	color: var(--text);
+}
+
+@keyframes chip-in {
+	from {
+		opacity: 0;
+		transform: scale(0.85);
+	}
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
 }
 
 .popover {
@@ -125,6 +140,15 @@
 	border-radius: var(--radius);
 	background: var(--surface);
 	overflow-y: auto;
+	transform-origin: top right;
+	animation: popover-in var(--dur) var(--ease) both;
+}
+
+@keyframes popover-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.98);
+	}
 }
 
 .popoverEmpty {

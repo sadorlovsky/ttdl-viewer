@@ -147,6 +147,14 @@
 	}
 }
 
+/* A literal duration, so it sits outside the `--dur*` token collapse the rest of the system gets
+   for free — the disc in ActionRail needs the same explicit stop, for the same reason. */
+@media (prefers-reduced-motion: reduce) {
+	.liveDot {
+		animation: none;
+	}
+}
+
 .cardFacts {
 	color: var(--text-2);
 	font-size: 13px;

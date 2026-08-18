@@ -374,6 +374,36 @@ export function ProfileScreen({ params }: { params: { archiveId: string } }) {
 		[archiveId, navigate, query],
 	);
 
+	/* ------------------------------------------------------------------- the sliding tab underline */
+
+	const tab = activeTab(query);
+	const tabsRef = useRef<HTMLElement>(null);
+	const underlineRef = useRef<HTMLSpanElement>(null);
+
+	// Read off the DOM rather than measured text, so it never drifts from what actually rendered —
+	// the same reasoning as `measureGrid` above. `.tabs` is this element's offsetParent (it is
+	// `position: relative`), so a plain `offsetLeft` is already in the right coordinate space.
+	const measureTabUnderline = useCallback(() => {
+		const nav = tabsRef.current;
+		const underline = underlineRef.current;
+		const active = nav?.querySelector<HTMLButtonElement>("button[data-on]");
+		if (!nav || !underline || !active) {
+			return;
+		}
+		const inset = 16; // matches DESIGN.md: "inset 16px from each edge"
+		underline.style.transform = `translateX(${active.offsetLeft + inset}px) scaleX(${active.offsetWidth - inset * 2})`;
+	}, []);
+
+	// `measureTabUnderline` reads `data-on` off the DOM rather than closing over `tab`, so a changed
+	// tab is exactly what has to trigger a re-measure even though this call never names it.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: see above
+	useLayoutEffect(measureTabUnderline, [tab, measureTabUnderline]);
+
+	useEffect(() => {
+		window.addEventListener("resize", measureTabUnderline);
+		return () => window.removeEventListener("resize", measureTabUnderline);
+	}, [measureTabUnderline]);
+
 	/* ------------------------------------------------------------------------------- rendering */
 
 	if (archive.isError) {
@@ -388,14 +418,12 @@ export function ProfileScreen({ params }: { params: { archiveId: string } }) {
 		);
 	}
 
-	const tab = activeTab(query);
-
 	return (
 		<div className={styles.screen} ref={scrollRef}>
 			<div className={styles.inner} ref={innerRef}>
 				{archive.data && <ArchiveHeader archive={archive.data} query={query} onQuery={setQuery} />}
 
-				<nav className={styles.tabs} aria-label="Post kind">
+				<nav className={styles.tabs} aria-label="Post kind" ref={tabsRef}>
 					{TABS.map(({ id, label }) => (
 						<button
 							key={id}
@@ -408,6 +436,7 @@ export function ProfileScreen({ params }: { params: { archiveId: string } }) {
 							{label}
 						</button>
 					))}
+					<span className={styles.underline} ref={underlineRef} aria-hidden="true" />
 				</nav>
 
 				<FilterBar

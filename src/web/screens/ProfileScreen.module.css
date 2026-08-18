@@ -155,6 +155,7 @@
 }
 
 .tabs {
+	position: relative;
 	display: flex;
 	gap: 4px;
 	margin-top: 24px;
@@ -178,13 +179,22 @@
 	color: var(--text);
 }
 
-/* The accent shows up here and on the progress fill, and essentially nowhere else. */
-.tab[data-on]::after {
-	content: "";
+/*
+ * One shared bar rather than a pseudo-element per tab, so switching tabs reads as the same mark
+ * travelling rather than one underline vanishing as another appears. `scaleX` on a 1px base keeps
+ * the resize compositor-only — a `width` transition here would be the layout-animation DESIGN.md
+ * tells every other component to avoid.
+ */
+.underline {
 	position: absolute;
-	inset: auto 16px -1px;
+	left: 0;
+	bottom: -1px;
+	width: 1px;
 	height: 2px;
 	background: var(--accent);
+	transform-origin: left center;
+	transition: transform var(--dur) var(--ease);
+	pointer-events: none;
 }
 
 .gridWrap {
