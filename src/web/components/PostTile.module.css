@@ -23,7 +23,33 @@
 	transition: transform var(--dur-slow) var(--ease);
 }
 
-.tile:hover .cover {
+/*
+ * The post playing in its own tile, over the cover rather than instead of it.
+ *
+ * Kept in the layout at all times and only faded in once there are frames, so a file that is slow
+ * to open — or one that never opens at all — leaves the still exactly where it was instead of
+ * putting a black rectangle in the grid. It takes no pointer events: the tile beneath is what the
+ * hover, the click and the focus ring belong to.
+ */
+.preview {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	opacity: 0;
+	transition:
+		opacity var(--dur) var(--ease),
+		transform var(--dur-slow) var(--ease);
+	pointer-events: none;
+}
+
+.preview[data-visible] {
+	opacity: 1;
+}
+
+.tile:hover .cover,
+.tile:hover .preview {
 	transform: scale(1.03);
 }
 

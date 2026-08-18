@@ -478,11 +478,27 @@ foreign.
 ### Post Tile (signature)
 
 Hard-cornered `9 / 16` cell on `--surface-2`, gapped `2px` from its neighbors. The cover scales to
-`1.03` over `320ms` on hover — the single most expressive motion in the product. A 44%-tall bottom
-gradient protects the view count and duration; a blurred pill in the top-left carries the author
-and one in the top-right the post kind, both `rgb(0 0 0 / 0.45)` with a `4px` blur. Amber corner
-chips drop to the second row so they never collide with the kind chip. Highlighted state is a `2px`
-inset Signal Rose ring drawn on a pseudo-element, so it never affects layout.
+`1.03` over `320ms` on hover. A 44%-tall bottom gradient protects the view count and duration; a
+blurred pill in the top-left carries the author and one in the top-right the post kind, both
+`rgb(0 0 0 / 0.45)` with a `4px` blur. Amber corner chips drop to the second row so they never
+collide with the kind chip. Highlighted state is a `2px` inset Signal Rose ring drawn on a
+pseudo-element, so it never affects layout.
+
+**The Hover Preview.** A pointer that rests on a tile for `300ms` starts the post playing inside
+it — silently, looping the first six seconds, scaling with the cover — and moving away ends it. It
+is the most expressive motion in the product, and everything about how it is armed exists to keep
+it from becoming the loudest: nothing loads while a pointer is merely crossing the grid, one post
+plays at a time, and the element is destroyed rather than hidden on the way out, so no archive is
+ever being read by a tile nobody is looking at. A carousel has no video to play, so it steps
+through its images at `1100ms` instead.
+
+Two things it is not. It is never a source of information: the cover, the counts, the duration and
+the kind chip all stay exactly where they were underneath it, because this arrives only for
+`(hover: hover) and (pointer: fine)` — half of this product is a touch screen, and a tile that only
+makes sense once it moves would be a tile that never makes sense there. And it is never audible: a
+grid that makes noise because a pointer crossed it is not a setting anybody chose, so the element
+is muted independently of the player's own mute state. Under `prefers-reduced-motion: reduce` there
+is no preview at all, which is the honest answer — there is no shorter version of a video to offer.
 
 ### Action Rail (signature)
 
@@ -571,6 +587,8 @@ at `8px` radius. Every empty state ends in a command the user can actually run.
   point of that grid.
 - **Don't** add a hover, focus, cursor, or press state to a count in the action rail. It is a
   readout; making it look pressable is a lie about a read-only archive.
+- **Don't** let a hover reveal something that is only ever said on hover. Everything a tile has to
+  say is on it at rest; the preview adds motion to what is already there and nothing else.
 - **Don't** use Missing-Frame Amber for an error, a destructive warning, or a validation state.
   It means the archive is incomplete and nothing else.
 - **Don't** animate `height`, `width`, `top`, or `left`, particularly anywhere near a playing

@@ -248,6 +248,16 @@ the images. When the browser refuses to run the audio at all (or stops it after 
 resolved, which happens), a wall clock takes over, or the slideshow would freeze on image one and
 read as a broken post.
 
+**Hover previews stream the original file.** No preview clips are generated, no ffmpeg is in the
+image, and nothing is cached to disk — a tile that has been hovered for 300ms mounts a muted
+`<video>` pointed at the same `/media/:archive/:post/media` the feed uses, loops its first six
+seconds, and is destroyed on the way out. Generating 240p clips is what a product does when the
+media is remote and large; here it is local and averages a few megabytes, so it would buy a
+smaller read at the cost of ffmpeg in the runtime image, a writable cache beside a deliberately
+read-only archive mount, and an invalidation problem. The one thing the approach cannot fix is
+first-frame latency: on localhost the preview appears in well under a second, over Wi-Fi to a
+sleeping NAS disk it is noticeably slower, and no amount of client code changes that.
+
 **Media sources are assigned imperatively, not as props.** Every element that plays something —
 both feed slides and the grid's previews — sets `element.src` inside the same effect whose cleanup
 clears it, and none of them carry a `src` prop. They have to be symmetrical: the cleanup exists to
