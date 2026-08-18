@@ -412,6 +412,7 @@ export function ProfileScreen({ params }: { params: { archiveId: string } }) {
 
 				<FilterBar
 					archiveId={archiveId}
+					archive={archive.data}
 					query={query}
 					onQuery={setQuery}
 					total={total}

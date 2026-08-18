@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import type { PostQuery, PostSort } from "../../shared/types.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Archive, PostQuery, PostSort } from "../../shared/types.ts";
 import { useHashtags, useStats } from "../api/client.ts";
 import styles from "./FilterBar.module.css";
 import { SearchIcon } from "./Icons.tsx";
@@ -28,6 +28,43 @@ interface SortOption {
 	needsLikes?: boolean;
 }
 
+interface DurationPreset {
+	id: string;
+	label: string;
+	min?: number;
+	max?: number;
+}
+
+const DURATION_PRESETS: DurationPreset[] = [
+	{ id: "short", label: "Under 15s", max: 15 },
+	{ id: "medium", label: "15s – 1 min", min: 15, max: 60 },
+	{ id: "long", label: "1 – 3 min", min: 60, max: 180 },
+	{ id: "extended", label: "Over 3 min", min: 180 },
+];
+
+/** Whole calendar years the archive's own dates span, newest first — quick filter chips. */
+function yearsInRange(range: { first: number; last: number }): number[] {
+	const firstYear = new Date(range.first * 1000).getUTCFullYear();
+	const lastYear = new Date(range.last * 1000).getUTCFullYear();
+	const years: number[] = [];
+	for (let year = lastYear; year >= firstYear; year--) {
+		years.push(year);
+	}
+	return years;
+}
+
+/** Mirrors `dayToUnix` in the server's query filter, so a year chip's bounds match what it queries. */
+function yearBounds(year: number): { from: string; to: string } {
+	return { from: `${year}-01-01`, to: `${year}-12-31` };
+}
+
+function dateRangeLabel(from: string | undefined, to: string | undefined): string {
+	if (from && to) {
+		return from === to ? from : `${from} – ${to}`;
+	}
+	return from ? `Since ${from}` : `Until ${to}`;
+}
+
 const NEWEST: SortOption = { id: "date", label: "Newest", sort: "date" };
 
 const SORTS: SortOption[] = [
@@ -49,13 +86,14 @@ const SORTS: SortOption[] = [
 
 interface FilterBarProps {
 	archiveId: string;
+	archive: Archive | undefined;
 	query: PostQuery;
 	onQuery: (next: PostQuery) => void;
 	total: number;
 	loading: boolean;
 }
 
-export function FilterBar({ archiveId, query, onQuery, total, loading }: FilterBarProps) {
+export function FilterBar({ archiveId, archive, query, onQuery, total, loading }: FilterBarProps) {
 	// The input is local so typing stays responsive; the URL (and therefore the query) follows
 	// after a pause, which also keeps the history from filling with half-typed words.
 	const [text, setText] = useState(query.q ?? "");
@@ -102,6 +140,64 @@ export function FilterBar({ archiveId, query, onQuery, total, loading }: FilterB
 		onQuery({ ...query, hashtag: next.length ? next : undefined });
 	};
 
+	const years = useMemo(
+		() => (archive?.dateRange ? yearsInRange(archive.dateRange) : []),
+		[archive?.dateRange],
+	);
+
+	const activeDuration = DURATION_PRESETS.find(
+		(preset) => preset.min === query.minDuration && preset.max === query.maxDuration,
+	);
+	const setDuration = (preset: DurationPreset) => {
+		const isActive = activeDuration?.id === preset.id;
+		onQuery({
+			...query,
+			minDuration: isActive ? undefined : preset.min,
+			maxDuration: isActive ? undefined : preset.max,
+		});
+	};
+	const clearDuration = () => onQuery({ ...query, minDuration: undefined, maxDuration: undefined });
+
+	const setYear = (year: number) => {
+		const bounds = yearBounds(year);
+		const isActive = query.from === bounds.from && query.to === bounds.to;
+		onQuery({
+			...query,
+			from: isActive ? undefined : bounds.from,
+			to: isActive ? undefined : bounds.to,
+		});
+	};
+	const setFrom = (value: string) => onQuery({ ...query, from: value || undefined });
+	const setTo = (value: string) => onQuery({ ...query, to: value || undefined });
+	const clearDate = () => onQuery({ ...query, from: undefined, to: undefined });
+
+	const hasExtraFilters = Boolean(activeDuration) || Boolean(query.from) || Boolean(query.to);
+
+	// One row, every kind of active filter, the same "read it, then remove it" affordance —
+	// a hashtag is not privileged over a duration bucket or a date range.
+	const activeFilters: Array<{ key: string; label: string; onRemove: () => void }> = [
+		...(activeDuration
+			? [{ key: "duration", label: activeDuration.label, onRemove: clearDuration }]
+			: []),
+		...(query.from || query.to
+			? [{ key: "date", label: dateRangeLabel(query.from, query.to), onRemove: clearDate }]
+			: []),
+		...activeTags.map((tag) => ({
+			key: `tag:${tag}`,
+			label: `#${tag}`,
+			onRemove: () => toggleTag(tag),
+		})),
+	];
+	const clearAll = () =>
+		onQuery({
+			...query,
+			hashtag: undefined,
+			minDuration: undefined,
+			maxDuration: undefined,
+			from: undefined,
+			to: undefined,
+		});
+
 	return (
 		<div className={styles.bar}>
 			<label className={styles.search}>
@@ -140,45 +236,107 @@ export function FilterBar({ archiveId, query, onQuery, total, loading }: FilterB
 
 			<button
 				className={styles.more}
-				data-on={open || undefined}
+				data-on={open || hasExtraFilters || activeTags.length > 0 || undefined}
 				onClick={() => setOpen((was) => !was)}
 			>
-				Tags
+				Filters
 			</button>
 
 			<span className={styles.count}>
 				{loading ? "…" : `${total.toLocaleString()} ${total === 1 ? "post" : "posts"}`}
 			</span>
 
-			{activeTags.length > 0 && (
+			{activeFilters.length > 0 && (
 				<div className={styles.active}>
-					{activeTags.map((tag) => (
-						<button key={tag} className={styles.activeTag} onClick={() => toggleTag(tag)}>
-							#{tag}
+					{activeFilters.map((filter) => (
+						<button key={filter.key} className={styles.activeTag} onClick={filter.onRemove}>
+							{filter.label}
 							<span className={styles.remove}>×</span>
 						</button>
 					))}
+					{activeFilters.length > 1 && (
+						<button className={styles.clearAll} onClick={clearAll}>
+							Clear all
+						</button>
+					)}
 				</div>
 			)}
 
 			{open && (
 				<div className={styles.popover}>
-					{hashtags.isPending && <p className={styles.popoverEmpty}>Counting tags…</p>}
-					{hashtags.data?.length === 0 && (
-						<p className={styles.popoverEmpty}>No hashtags in this archive.</p>
-					)}
-					<div className={styles.tagCloud}>
-						{hashtags.data?.map(({ tag, count }) => (
-							<button
-								key={tag}
-								className={styles.tag}
-								data-on={activeTags.includes(tag) || undefined}
-								onClick={() => toggleTag(tag)}
-							>
-								#{tag}
-								<span className={styles.tagCount}>{count}</span>
-							</button>
-						))}
+					<div className={styles.section}>
+						<p className={styles.sectionLabel}>Duration</p>
+						<div className={styles.tagCloud}>
+							{DURATION_PRESETS.map((preset) => (
+								<button
+									key={preset.id}
+									className={styles.tag}
+									data-on={activeDuration?.id === preset.id || undefined}
+									onClick={() => setDuration(preset)}
+								>
+									{preset.label}
+								</button>
+							))}
+						</div>
+					</div>
+
+					<div className={styles.section}>
+						<p className={styles.sectionLabel}>Date</p>
+						{years.length > 0 && (
+							<div className={styles.tagCloud}>
+								{years.map((year) => {
+									const bounds = yearBounds(year);
+									return (
+										<button
+											key={year}
+											className={styles.tag}
+											data-on={(query.from === bounds.from && query.to === bounds.to) || undefined}
+											onClick={() => setYear(year)}
+										>
+											{year}
+										</button>
+									);
+								})}
+							</div>
+						)}
+						<div className={styles.dateRow}>
+							<input
+								type="date"
+								className={styles.dateInput}
+								value={query.from ?? ""}
+								onChange={(event) => setFrom(event.target.value)}
+								aria-label="From date"
+							/>
+							<span className={styles.dateSep}>–</span>
+							<input
+								type="date"
+								className={styles.dateInput}
+								value={query.to ?? ""}
+								onChange={(event) => setTo(event.target.value)}
+								aria-label="To date"
+							/>
+						</div>
+					</div>
+
+					<div className={styles.section}>
+						<p className={styles.sectionLabel}>Hashtags</p>
+						{hashtags.isPending && <p className={styles.popoverEmpty}>Counting tags…</p>}
+						{hashtags.data?.length === 0 && (
+							<p className={styles.popoverEmpty}>No hashtags in this archive.</p>
+						)}
+						<div className={styles.tagCloud}>
+							{hashtags.data?.map(({ tag, count }) => (
+								<button
+									key={tag}
+									className={styles.tag}
+									data-on={activeTags.includes(tag) || undefined}
+									onClick={() => toggleTag(tag)}
+								>
+									#{tag}
+									<span className={styles.tagCount}>{count}</span>
+								</button>
+							))}
+						</div>
 					</div>
 				</div>
 			)}

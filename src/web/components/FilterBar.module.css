@@ -106,9 +106,20 @@
 	line-height: 1;
 }
 
+.clearAll {
+	padding: 3px 4px;
+	color: var(--text-3);
+	font-size: 12.5px;
+	transition: color var(--dur-fast) var(--ease);
+}
+
+.clearAll:hover {
+	color: var(--text);
+}
+
 .popover {
 	width: 100%;
-	max-height: 240px;
+	max-height: 400px;
 	padding: 12px;
 	border: 1px solid var(--line);
 	border-radius: var(--radius);
@@ -119,6 +130,51 @@
 .popoverEmpty {
 	color: var(--text-4);
 	font-size: 13px;
+}
+
+.section + .section {
+	margin-top: 14px;
+	padding-top: 14px;
+	border-top: 1px solid var(--line);
+}
+
+.sectionLabel {
+	margin-bottom: 8px;
+	color: var(--text-3);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.dateRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.dateInput {
+	flex: 1 1 0;
+	min-width: 0;
+	padding: 7px 10px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-pill);
+	background: var(--surface);
+	color: var(--text-2);
+	font-size: 13px;
+	color-scheme: dark;
+	transition: border-color var(--dur-fast) var(--ease);
+}
+
+.dateInput:focus {
+	border-color: var(--line-strong);
+	outline: none;
+}
+
+.dateSep {
+	color: var(--text-4);
+	font-size: 12px;
 }
 
 .tagCloud {
