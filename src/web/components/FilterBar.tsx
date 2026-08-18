@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PostQuery, PostSort } from "../../shared/types.ts";
-import { useHashtags } from "../api/client.ts";
+import { useHashtags, useStats } from "../api/client.ts";
 import styles from "./FilterBar.module.css";
 import { SearchIcon } from "./Icons.tsx";
 
@@ -18,6 +18,14 @@ interface SortOption {
 	sort: PostSort;
 	/** Omitted means descending — the default, which `serializeQuery` keeps out of the URL. */
 	order?: "asc";
+	/**
+	 * Hidden unless a TikTok export was loaded.
+	 *
+	 * Nothing on disk records when a post was saved, so without the export every post's date is
+	 * null — the sort still runs, falls back to publication order, and looks broken rather than
+	 * empty. An option that cannot do what it says is worse than one that is not there.
+	 */
+	needsLikes?: boolean;
 }
 
 const NEWEST: SortOption = { id: "date", label: "Newest", sort: "date" };
@@ -25,10 +33,16 @@ const NEWEST: SortOption = { id: "date", label: "Newest", sort: "date" };
 const SORTS: SortOption[] = [
 	NEWEST,
 	{ id: "date-asc", label: "Oldest", sort: "date", order: "asc" },
+	// Beside the publication dates, because they answer the same shape of question — but they are a
+	// different date entirely: when you saved the post, which only the TikTok export knows.
+	{ id: "liked", label: "Recently saved", sort: "liked", needsLikes: true },
+	{ id: "liked-asc", label: "First saved", sort: "liked", order: "asc", needsLikes: true },
 	{ id: "likes", label: "Most liked", sort: "likes" },
 	{ id: "views", label: "Most viewed", sort: "views" },
 	{ id: "comments", label: "Most discussed", sort: "comments" },
-	{ id: "saves", label: "Most saved", sort: "saves" },
+	// "Most saved" read as the viewer's own saves once those had dates of their own. This counts
+	// how many people on TikTok bookmarked the post — someone else's number, not yours.
+	{ id: "saves", label: "Most bookmarked", sort: "saves" },
 	{ id: "duration", label: "Longest", sort: "duration" },
 	{ id: "random", label: "Shuffle", sort: "random" },
 ];
@@ -48,6 +62,9 @@ export function FilterBar({ archiveId, query, onQuery, total, loading }: FilterB
 	const [open, setOpen] = useState(false);
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const hashtags = useHashtags(archiveId, open);
+	// One value for the whole server, already cached by every other screen — no extra request.
+	const stats = useStats();
+	const hasLikes = Boolean(stats.data?.likesDir);
 
 	useEffect(() => {
 		setText(query.q ?? "");
@@ -69,6 +86,13 @@ export function FilterBar({ archiveId, query, onQuery, total, loading }: FilterB
 	const wantsAsc = query.order === "asc" ? "asc" : undefined;
 	const current =
 		SORTS.find((s) => s.sort === (query.sort ?? "date") && s.order === wantsAsc) ?? NEWEST;
+
+	// The export-only entries are hidden — unless the URL already asks for one, in which case the
+	// select would have a value with no option behind it and would render blank. Keeping the chosen
+	// entry visible is the difference between "not offered here" and "something is broken".
+	const options = SORTS.filter(
+		(option) => hasLikes || !option.needsLikes || option.id === current.id,
+	);
 
 	const activeTags = query.hashtag ?? [];
 	const toggleTag = (tag: string) => {
@@ -107,7 +131,7 @@ export function FilterBar({ archiveId, query, onQuery, total, loading }: FilterB
 					});
 				}}
 			>
-				{SORTS.map((option) => (
+				{options.map((option) => (
 					<option key={option.id} value={option.id}>
 						{option.label}
 					</option>
