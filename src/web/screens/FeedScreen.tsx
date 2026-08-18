@@ -21,10 +21,12 @@ import {
 import { BackIcon, InfoIcon, MuteIcon, SoundIcon } from "../components/Icons.tsx";
 import { ActionRail } from "../feed/ActionRail.tsx";
 import { Caption } from "../feed/Caption.tsx";
-import { type CarouselControls, CarouselSlide } from "../feed/CarouselSlide.tsx";
+import { CarouselSlide } from "../feed/CarouselSlide.tsx";
+import type { SlideControls } from "../feed/controls.ts";
 import { DebugPanel } from "../feed/DebugPanel.tsx";
 import { PostMenu } from "../feed/PostMenu.tsx";
 import { VideoSlide } from "../feed/VideoSlide.tsx";
+import { date, duration } from "../lib/format.ts";
 import { usePlayer } from "../store/player.ts";
 import empty from "./Empty.module.css";
 import styles from "./FeedScreen.module.css";
@@ -37,6 +39,38 @@ import styles from "./FeedScreen.module.css";
  * still making prev/next instant.
  */
 const WINDOW = 2;
+
+/** "Carousel, 5 images, 2 not downloaded" — the counter and the hatched segments, said out loud. */
+function photosLabel(post: Post): string {
+	const photos = post.photos;
+	if (!photos) {
+		return "Carousel";
+	}
+	const absent = photos.expected !== null ? photos.expected - photos.count : 0;
+	const images = `${photos.count} ${photos.count === 1 ? "image" : "images"}`;
+	return absent > 0 ? `Carousel, ${images}, ${absent} not downloaded` : `Carousel, ${images}`;
+}
+
+/**
+ * What a screen reader hears for a post.
+ *
+ * The screen already says all of this — handle, date, whether the date was inferred, kind, missing
+ * images, caption — but it says it in five places, none of which is announced when the slide
+ * changes. This is the same information in the order a viewer reads it, in one sentence.
+ */
+function postLabel(post: Post): string {
+	const who = post.author.handle
+		? `@${post.author.handle}`
+		: (post.author.name ?? "Unknown author");
+	const when = `${date(post.createdAt)}${post.createdAtSource === "info" ? "" : ", date inferred"}`;
+	const kind =
+		post.kind === "carousel"
+			? photosLabel(post)
+			: `Video${post.duration ? `, ${duration(post.duration)}` : ""}`;
+	// The same field the caption renders, so the two never disagree.
+	const text = (post.description ?? post.title).trim();
+	return `${who}, ${when}. ${kind}. ${text || "No caption"}`;
+}
 
 export function FeedScreen({ params }: { params: { archiveId: string; postId: string } }) {
 	const { archiveId, postId } = params;
@@ -55,6 +89,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [paused, setPaused] = useState(true);
 	const [showInfo, setShowInfo] = useState(false);
+	const [showKeys, setShowKeys] = useState(false);
 	/** The long-press sheet. Open means the active slide is held, not merely covered. */
 	const [menuOpen, setMenuOpen] = useState(false);
 	// Read by the pointer-down handler, which is memoised and must not be rebuilt per slide.
@@ -70,7 +105,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 	const [chromeHidden, setChromeHidden] = useState(false);
 	const [fullscreen, setFullscreen] = useState(false);
 	const mediaRefs = useRef(new Map<string, HTMLMediaElement>());
-	const controlRefs = useRef(new Map<string, CarouselControls>());
+	const controlRefs = useRef(new Map<string, SlideControls>());
 	const didInitialScroll = useRef(false);
 	/** The archive the arrival state above belongs to; see the layout effect. */
 	const lastArchive = useRef(archiveId);
@@ -97,6 +132,8 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 	const toggleMuted = usePlayer((state) => state.toggleMuted);
 	const markInteracted = usePlayer((state) => state.markInteracted);
 	const restoreSound = usePlayer((state) => state.restoreSound);
+	const seenFeedHint = usePlayer((state) => state.seenFeedHint);
+	const dismissFeedHint = usePlayer((state) => state.dismissFeedHint);
 
 	const targetIndex = useMemo(() => items.findIndex((p) => p.id === postId), [items, postId]);
 
@@ -391,6 +428,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 				return;
 			}
 			markInteracted();
+			dismissFeedHint();
 			const media = currentMedia();
 			const controls = currentControls();
 
@@ -420,7 +458,8 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 					}
 					break;
 				case "ArrowLeft":
-					// A carousel has discrete steps, so an arrow means one image, not five seconds.
+					// What a step is belongs to the slide: one image on a carousel, five seconds on a
+					// video. The `media` paths below are the fallback for a slide yet to register.
 					if (controls) {
 						controls.step(-1);
 					} else if (media) {
@@ -440,14 +479,20 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 					break;
 				case "i":
 					setShowInfo((was) => !was);
+					setShowKeys(false);
+					break;
+				case "?":
+					setShowKeys((was) => !was);
+					setShowInfo(false);
 					break;
 				case "Escape":
 					// Innermost first: a cleared display is a state you can be stuck in, and
 					// Escape is the only way out of it that does not involve guessing.
 					if (chromeHidden) {
 						setChromeHidden(false);
-					} else if (showInfo) {
+					} else if (showInfo || showKeys) {
 						setShowInfo(false);
+						setShowKeys(false);
 					} else {
 						backToGrid();
 					}
@@ -469,7 +514,9 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 		backToGrid,
 		toggleSound,
 		markInteracted,
+		dismissFeedHint,
 		showInfo,
+		showKeys,
 		currentMedia,
 		currentControls,
 		menuOpen,
@@ -551,6 +598,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			// by the post the viewer is actually looking at.
 			syncActive.current();
 			markInteracted();
+			dismissFeedHint();
 			/*
 			 * Everywhere except the control that owns the sound.
 			 *
@@ -568,12 +616,12 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			}
 			primeForGesture();
 		},
-		[markInteracted, restoreSound, primeForGesture],
+		[markInteracted, dismissFeedHint, restoreSound, primeForGesture],
 	);
 
 	// Takes the id as an argument rather than returning a per-id closure, so the slide receives
 	// one stable function and does not re-register itself on every parent render.
-	const registerControls = useCallback((id: string, controls: CarouselControls | null) => {
+	const registerControls = useCallback((id: string, controls: SlideControls | null) => {
 		if (controls) {
 			controlRefs.current.set(id, controls);
 		} else {
@@ -619,6 +667,44 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 
 	const rawInfo = useRawInfo(archiveId, activePost?.id ?? null, showInfo);
 
+	const closePanelRef = useRef<HTMLButtonElement>(null);
+	/** Whatever had focus when a panel opened, so closing it puts the caret back where it was. */
+	const restoreFocusRef = useRef<HTMLElement | null>(null);
+	const panelOpen = showInfo || showKeys;
+
+	/*
+	 * Either panel takes focus when it opens and hands it back when it closes.
+	 *
+	 * Neither is `aria-modal`, and the feed behind them is left live: the metadata panel is keyed to
+	 * the active post, so scrolling with it open walks the raw metadata alongside the posts. That is
+	 * the whole point of it on an archive-verification pass, and trapping focus would end it.
+	 */
+	useEffect(() => {
+		if (panelOpen) {
+			restoreFocusRef.current = document.activeElement as HTMLElement | null;
+			closePanelRef.current?.focus();
+		} else if (restoreFocusRef.current) {
+			restoreFocusRef.current.focus();
+			restoreFocusRef.current = null;
+		}
+	}, [panelOpen]);
+
+	/*
+	 * What the live region says.
+	 *
+	 * Settling first, because holding `j` down would otherwise queue one announcement per post
+	 * passed through; the only one worth hearing is the post the viewer stops on.
+	 */
+	const [announced, setAnnounced] = useState("");
+	useEffect(() => {
+		if (!activePost) {
+			return;
+		}
+		const label = postLabel(activePost);
+		const timer = setTimeout(() => setAnnounced(label), 250);
+		return () => clearTimeout(timer);
+	}, [activePost]);
+
 	// Not part of the query object: this is a debugging switch, not a view, and it has no business
 	// in the cache key or in a shared URL's meaning. The URL is read once for the initial value,
 	// because it is rewritten from the filter on every slide — which drops the flag on the first
@@ -646,6 +732,8 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 		};
 		// Recomputed per slide: what is offered depends on the post the sheet would open over.
 	}, [activePost]);
+
+	const archiveName = archive.data?.name ?? "this archive";
 
 	/* --------------------------------------------------------------------------------- rendering */
 
@@ -677,11 +765,23 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			style={stage}
 			onPointerDownCapture={onFeedPointerDown}
 		>
+			<h1 className={styles.srOnly}>{archiveName}</h1>
+			<p className={styles.srOnly} role="status" aria-live="polite">
+				{announced}
+			</p>
+
 			<div
 				className={styles.feed}
 				ref={containerRef}
 				onPointerDown={onFeedPointerDown}
 				tabIndex={-1}
+				// The sheet says `aria-modal`; without this the feed behind it stayed in the tab order
+				// and in the accessibility tree, so Tab put the focus ring on an invisible control and
+				// the hashtag button could navigate away from the post the sheet belongs to.
+				inert={menuOpen}
+				role="feed"
+				aria-label={`Posts in ${archiveName}`}
+				aria-busy={isFetchingNextPage || undefined}
 			>
 				{/*
 				 * Every post gets a slot; only the window gets content. An empty fixed-height div
@@ -691,7 +791,27 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 				{items.map((post, index) => {
 					const distance = Math.abs(index - activeIndex);
 					return (
-						<div key={post.id} className={styles.slot} data-index={index}>
+						<article
+							key={post.id}
+							className={styles.slot}
+							data-index={index}
+							aria-posinset={index + 1}
+							// Same honesty as the position readout: while more pages can still arrive, the
+							// size of the set is not something this screen knows.
+							aria-setsize={hasNextPage ? -1 : items.length}
+							// Only the active slot is in the accessibility tree, so the label is only ever
+							// read for that one — and building it for all of them on every snap would not be.
+							aria-label={index === activeIndex ? postLabel(post) : undefined}
+							/*
+							 * Everything off screen is out of reach.
+							 *
+							 * Every mounted neighbour renders a play badge at `inset: 0` — a real button —
+							 * and segment buttons besides. Without this, Tab lands on a slide two positions
+							 * away and the browser scrolls it into view, moving the feed with no
+							 * announcement and no way to tell it happened.
+							 */
+							inert={index !== activeIndex}
+						>
 							{distance <= WINDOW && (
 								<Slide
 									post={post}
@@ -712,7 +832,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 									onEnded={advance}
 								/>
 							)}
-						</div>
+						</article>
 					);
 				})}
 			</div>
@@ -723,8 +843,13 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			 * overlay: they go and come back as one thing, and anything that only mostly disappears
 			 * defeats the point of asking.
 			 */}
-			<div className={styles.overlays} data-hidden={menuOpen || chromeHidden || undefined}>
-				<div className={styles.chrome}>
+			<div
+				className={styles.overlays}
+				data-hidden={menuOpen || chromeHidden || undefined}
+				// Faded out is not the same as gone: at `opacity: 0` these were still focusable.
+				inert={menuOpen || chromeHidden}
+			>
+				<div className={styles.chrome} data-kind={activePost?.kind}>
 					<button className={styles.back} onClick={backToGrid} aria-label="Back to the grid">
 						<BackIcon />
 					</button>
@@ -742,8 +867,13 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 						<button
 							className={styles.chromeButton}
 							data-on={showInfo || undefined}
-							onClick={() => setShowInfo((was) => !was)}
+							onClick={() => {
+								setShowInfo((was) => !was);
+								setShowKeys(false);
+							}}
 							aria-label="Show the raw metadata"
+							aria-haspopup="dialog"
+							aria-expanded={showInfo}
 						>
 							<InfoIcon />
 						</button>
@@ -760,6 +890,15 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 							}
 						/>
 						<ActionRail post={activePost} paused={paused} />
+						{!seenFeedHint && (
+							<p className={styles.hint}>
+								<span className={styles.hintTouch}>Tap to pause · hold to inspect</span>
+								<span className={styles.hintKeys}>
+									Space to pause · hold to inspect · <kbd className={styles.kbd}>?</kbd> for keys
+								</span>
+							</p>
+						)}
+
 						<div className={styles.position}>
 							{/*
 							 * Once there are no more pages, what is loaded is all that can be reached —
@@ -780,7 +919,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			 * Without it the gesture out is unguessable: nothing is left to suggest that a tap does
 			 * anything, and the obvious reading of a screen with no controls is that it broke.
 			 */}
-			{chromeHidden && <div className={styles.hint}>Tap to show the interface</div>}
+			{chromeHidden && <div className={styles.clearHint}>Tap to show the interface</div>}
 
 			{debug && <DebugPanel scroller={containerRef} />}
 
@@ -793,16 +932,98 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 					fullscreen={fullscreen}
 					onPip={pip}
 					onRawInfo={() => setShowInfo(true)}
+					onOpenSource={
+						activePost.webpageUrl
+							? () =>
+									window.open(
+										activePost.webpageUrl as string,
+										"_blank",
+										// Where the visit came from is nobody's business.
+										"noopener,noreferrer",
+									)
+							: null
+					}
+					onShortcuts={() => setShowKeys(true)}
 					debug={debug}
 					onDebugChange={setDebug}
 				/>
 			)}
 
-			{showInfo && (
-				<aside className={styles.drawer}>
+			{showKeys && (
+				<aside className={styles.drawer} role="dialog" aria-labelledby="feed-keys-title">
 					<header className={styles.drawerHead}>
-						<h2>Raw metadata</h2>
-						<button onClick={() => setShowInfo(false)} aria-label="Close">
+						<h2 id="feed-keys-title">Shortcuts</h2>
+						<button ref={closePanelRef} onClick={() => setShowKeys(false)} aria-label="Close">
+							×
+						</button>
+					</header>
+					<div className={styles.keys}>
+						<p className={styles.keysGroup}>Keys</p>
+						<dl className={styles.keyList}>
+							<dt>
+								<kbd className={styles.kbd}>J</kbd>
+								<kbd className={styles.kbd}>↓</kbd>
+							</dt>
+							<dd>Next post</dd>
+							<dt>
+								<kbd className={styles.kbd}>K</kbd>
+								<kbd className={styles.kbd}>↑</kbd>
+							</dt>
+							<dd>Previous post</dd>
+							<dt>
+								<kbd className={styles.kbd}>Space</kbd>
+							</dt>
+							<dd>Play or pause</dd>
+							<dt>
+								<kbd className={styles.kbd}>←</kbd>
+								<kbd className={styles.kbd}>→</kbd>
+							</dt>
+							<dd>Seek five seconds, or step one image in a carousel</dd>
+							<dt>
+								<kbd className={styles.kbd}>0</kbd>
+								<kbd className={styles.kbd}>9</kbd>
+							</dt>
+							<dd>Jump to that tenth of the video</dd>
+							<dt>
+								<kbd className={styles.kbd}>M</kbd>
+							</dt>
+							<dd>Mute or unmute</dd>
+							<dt>
+								<kbd className={styles.kbd}>I</kbd>
+							</dt>
+							<dd>The post's raw metadata, as it is on disk</dd>
+							<dt>
+								<kbd className={styles.kbd}>F</kbd>
+							</dt>
+							<dd>Fullscreen</dd>
+							<dt>
+								<kbd className={styles.kbd}>Esc</kbd>
+							</dt>
+							<dd>Close this, or go back to the grid</dd>
+						</dl>
+
+						<p className={styles.keysGroup}>Touch</p>
+						<dl className={styles.keyList}>
+							<dt>Tap</dt>
+							<dd>Play or pause</dd>
+							<dt>Hold</dt>
+							<dd>Open the post menu</dd>
+							<dt>Swipe</dt>
+							<dd>One post per flick, or one image sideways in a carousel</dd>
+							<dt>Tap a segment</dt>
+							<dd>Jump to that image. Hatched ones were never downloaded</dd>
+							<dt>Tap a hashtag</dt>
+							<dd>Filter the archive by it</dd>
+						</dl>
+					</div>
+				</aside>
+			)}
+
+			{showInfo && (
+				<aside className={styles.drawer} role="dialog" aria-labelledby="feed-drawer-title">
+					<header className={styles.drawerHead}>
+						<h2 id="feed-drawer-title">Raw metadata</h2>
+						<button ref={closePanelRef} onClick={() => setShowInfo(false)} aria-label="Close">
 							×
 						</button>
 					</header>
@@ -830,7 +1051,7 @@ interface SlideProps {
 	distance: number;
 	onPausedChange: (paused: boolean) => void;
 	registerMedia: (element: HTMLMediaElement | null) => void;
-	registerControls: (id: string, controls: CarouselControls | null) => void;
+	registerControls: (id: string, controls: SlideControls | null) => void;
 	mayBuffer: boolean;
 	onReady: () => void;
 	suspended: boolean;
@@ -864,6 +1085,7 @@ function Slide({
 			distance={distance}
 			onPausedChange={onPausedChange}
 			registerMedia={registerMedia}
+			registerControls={registerControls}
 			mayBuffer={mayBuffer}
 			onReady={onReady}
 			suspended={suspended}

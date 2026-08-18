@@ -45,15 +45,17 @@ export function bankLap(state: Lap, currentTime: number, duration: number): Lap 
 }
 
 /**
- * Where the clock has to stand for a given moment of the slideshow, and where the track stands
- * within its own loop to match.
+ * The offset at which the images should be read, so that a given moment of the slideshow is on
+ * screen without the track having moved.
  *
- * Seeking is the one thing that legitimately moves the reading backwards, so it re-bases the count
- * rather than being detected as a lap: a tap on an earlier segment is not the track coming round,
- * and counting it as one would put the images a whole track ahead of the sound.
+ * Stepping to another image used to seek the audio, because the images are timed off it — so every
+ * arrow key and every swipe dropped the music into the middle of a bar. The pictures are what the
+ * viewer asked to move; the sound is not a scrubber for them. Keeping the seek here, as an offset
+ * added to the clock rather than a change to it, leaves the track playing straight through.
  */
-export function rebase(at: number, duration: number): Lap & { into: number } {
-	const track = Number.isFinite(duration) && duration > 0 ? duration : at || 1;
-	const into = at % track;
-	return { banked: at - into, last: into, into };
+export function shiftFor(target: number, now: number, cycle: number): number {
+	if (!Number.isFinite(cycle) || cycle <= 0) {
+		return 0;
+	}
+	return (((target - now) % cycle) + cycle) % cycle;
 }

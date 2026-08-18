@@ -14,32 +14,51 @@ const HOLD_MS = 400;
 const HOLD_SLOP = 10;
 
 /**
- * How far sideways before a gesture is a swipe between images.
+ * How far a finger travels before the gesture is committed to an axis.
  *
- * Deliberately close to the hold's slop rather than far beyond it. A finger reports its way across
- * the glass in a few pixels at a time, so a threshold set generously wide is not a stricter test —
- * it is a later one, and the browser will have committed the gesture to scrolling long before it
- * is met.
+ * This is a race, and the number is chosen to win it. `touch-action: pan-y` stops the browser
+ * claiming a sideways drag, but it still starts scrolling the feed the moment a gesture reads as
+ * vertical — and it decides that after roughly eight to ten pixels. A threshold above that is not
+ * a stricter test, it is a later one: by the time it was met the feed had already moved and the
+ * pointer stream had been cancelled out from under us, which is why a sideways swipe kept coming
+ * out as a swipe between posts.
  */
-const SWIPE_PX = 18;
+const DECIDE_PX = 6;
 
 /**
- * How much more sideways than up-and-down a swipe has to be.
+ * How sideways a gesture has to be, relative to its own drift, to be a swipe between images.
  *
- * The feed scrolls vertically and a carousel steps horizontally, and the same finger starts both.
- * Distance alone would hand a lazy diagonal to whichever axis crossed its threshold first, which is
- * a coin toss; requiring the horizontal to lead means an ambiguous gesture stays with the feed,
- * where being wrong costs a scroll rather than a lost place in the post.
+ * The feed scrolls vertically and a carousel steps horizontally, and the same finger starts both,
+ * so the axis is decided by which one leads rather than by distance alone. Below 1 the horizontal
+ * is given a wider cone than the vertical: at 1.2 a swipe had to hold within about 40 degrees of
+ * flat, and a thumb travels an arc, so an ordinary sideways flick kept drifting out of the test and
+ * being handed to the feed. At 0.75 it holds up to about 53 degrees.
+ *
+ * Widening this is safe in a way that lowering the distance threshold is not, because the two
+ * gestures are not symmetrical: a deliberate scroll through the feed runs several times further
+ * vertically than it wanders sideways, so it stays well outside the cone even at this angle.
  */
-const SWIPE_BIAS = 1.2;
+const SWIPE_BIAS = 0.75;
 
 /** Anything with its own gesture is left alone: the play badge, a carousel segment, the scrubber. */
 const INTERACTIVE = "button, a, input, [data-interactive]";
 
 interface Gesture {
-	/** Where the current stretch is measured from; a swipe re-bases it so a long drag can step on. */
+	/** Where the gesture went down, and what every distance below is measured from. */
 	x: number;
 	y: number;
+	/**
+	 * Which way this gesture went, decided once and never revisited.
+	 *
+	 * Without the lock a swipe was judged afresh on every report, so a finger that started sideways
+	 * and drifted down — which is how a real thumb moves — stopped qualifying halfway through and
+	 * the feed took the rest of it. "y" means the gesture belongs to the feed and nothing here will
+	 * claim it back.
+	 */
+	axis: "x" | "y" | null;
+	/** A swipe has already been made of this gesture; one flick moves one image, however far it
+	 *  carries on afterwards. */
+	swiped: boolean;
 	/** Still eligible to become a press: nothing has moved far enough to say otherwise. */
 	hold: boolean;
 	/** Something has already been made of this gesture, so the lift is not also a tap. */
@@ -140,7 +159,14 @@ export function useLongPress({ onLongPress, onRelease, onTap, onSwipe }: Options
 		// about, and it is not always the whole window.
 		const box = event.currentTarget.getBoundingClientRect();
 		const within = box.width > 0 ? (event.clientX - box.left) / box.width : 0;
-		gesture.current = { x: event.clientX, y: event.clientY, hold: true, spent: false };
+		gesture.current = {
+			x: event.clientX,
+			y: event.clientY,
+			axis: null,
+			swiped: false,
+			hold: true,
+			spent: false,
+		};
 		timer.current = setTimeout(() => {
 			const live = gesture.current;
 			if (!live?.hold) {
@@ -159,18 +185,20 @@ export function useLongPress({ onLongPress, onRelease, onTap, onSwipe }: Options
 		}
 		const dx = event.clientX - live.x;
 		const dy = event.clientY - live.y;
-		if (
-			latest.current.onSwipe &&
-			Math.abs(dx) > SWIPE_PX &&
-			Math.abs(dx) > Math.abs(dy) * SWIPE_BIAS
-		) {
+		// Commit to an axis the first time the finger has travelled far enough to have an opinion,
+		// before the browser forms one of its own.
+		if (!live.axis && (Math.abs(dx) > DECIDE_PX || Math.abs(dy) > DECIDE_PX)) {
+			live.axis = Math.abs(dx) > Math.abs(dy) * SWIPE_BIAS ? "x" : "y";
+		}
+		if (latest.current.onSwipe && live.axis === "x" && !live.swiped) {
 			clearTimeout(timer.current);
 			live.hold = false;
 			live.spent = true;
-			// Measure the next stretch from here, so one long drag can step on through the images
-			// rather than spending itself on the first of them.
-			live.x = event.clientX;
-			live.y = event.clientY;
+			// One flick, one image. A finger crosses a screen's width in a single sweep, so measuring
+			// each further stretch from where the last one ended turned an ordinary swipe into a
+			// dozen of them and left the carousel wherever the finger happened to stop. What follows
+			// the first step is the same gesture carrying on, not a request for more.
+			live.swiped = true;
 			latest.current.onSwipe(dx < 0 ? 1 : -1);
 			return;
 		}

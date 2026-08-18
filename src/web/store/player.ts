@@ -21,6 +21,16 @@ interface PlayerState {
 	/** Autoplay policy only lets us unmute after a real gesture; until then, do not offer it. */
 	hasInteracted: boolean;
 	autoAdvance: boolean;
+	/**
+	 * The slow zoom across a carousel's photos.
+	 *
+	 * Off by default. It is an effect applied to someone else's picture — it crops the edges, and on
+	 * a still photograph it invents movement the post never had. Worth offering, not worth imposing
+	 * on an archive whose whole point is showing what is actually on disk.
+	 */
+	pan: boolean;
+	/** Whether the feed's one-time gesture hint has been dismissed. Persisted; it is shown once. */
+	seenFeedHint: boolean;
 	toggleMuted: () => void;
 	/** Forced off because the browser refused to start an unmuted element. */
 	mute: () => void;
@@ -37,6 +47,8 @@ interface PlayerState {
 	setRate: (rate: number) => void;
 	markInteracted: () => void;
 	setAutoAdvance: (on: boolean) => void;
+	setPan: (on: boolean) => void;
+	dismissFeedHint: () => void;
 }
 
 /** The rates the menu offers, and the only ones anything else should assume. */
@@ -60,6 +72,8 @@ export const usePlayer = create<PlayerState>()(
 			rate: 1,
 			hasInteracted: false,
 			autoAdvance: false,
+			pan: false,
+			seenFeedHint: false,
 			// Turning the sound on by hand is a gesture, which is the very thing the policy wanted —
 			// so it clears the flag as well as the mute.
 			toggleMuted: () => set((state) => ({ muted: !state.muted, mutedByPolicy: false })),
@@ -77,6 +91,10 @@ export const usePlayer = create<PlayerState>()(
 			setRate: (rate) => set({ rate: Math.min(4, Math.max(0.25, rate)) }),
 			markInteracted: () => set({ hasInteracted: true }),
 			setAutoAdvance: (autoAdvance) => set({ autoAdvance }),
+			setPan: (pan) => set({ pan }),
+			// Any interaction at all counts as having read it: the hint names the gestures, and using
+			// one is better proof of having understood it than dismissing a box would be.
+			dismissFeedHint: () => set((state) => (state.seenFeedHint ? {} : { seenFeedHint: true })),
 		}),
 		{
 			name: "ttdl-viewer:player",
@@ -85,6 +103,8 @@ export const usePlayer = create<PlayerState>()(
 				volume: state.volume,
 				rate: state.rate,
 				autoAdvance: state.autoAdvance,
+				pan: state.pan,
+				seenFeedHint: state.seenFeedHint,
 			}),
 		},
 	),

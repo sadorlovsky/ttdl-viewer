@@ -35,6 +35,8 @@
 
 	--radius: 8px;
 	--radius-lg: 12px;
+	/* Top corners of the long-press sheet, and nothing else — see DESIGN.md, Shapes. */
+	--radius-sheet: 16px;
 	--radius-pill: 999px;
 
 	--rail-gap: 20px;

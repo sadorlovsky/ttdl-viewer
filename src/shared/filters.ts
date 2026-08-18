@@ -21,6 +21,17 @@ const SORTS: PostSort[] = [
 
 const DEFAULTS = { sort: "date" as PostSort, order: "desc" as const, status: "complete" as const };
 
+/**
+ * Stands in for the handle of a post whose metadata never arrived.
+ *
+ * That handle is the empty string, and a query string cannot carry it: `?author=` and "no author
+ * filter at all" are indistinguishable once parsed, so the filter was dropped on the way back and
+ * the "Unknown author" chip appeared to do nothing. A hyphen is safe to reserve because TikTok
+ * handles are letters, digits, dots and underscores — one can never contain it. Same reason the
+ * `tiktok-saved` archive directory is named with one.
+ */
+const UNKNOWN_AUTHOR = "-";
+
 function one(params: URLSearchParams, key: string): string | undefined {
 	const value = params.get(key);
 	return value === null || value === "" ? undefined : value;
@@ -51,7 +62,7 @@ export function parseQuery(params: URLSearchParams): PostQuery {
 	}
 	const author = many(params, "author");
 	if (author) {
-		query.author = author;
+		query.author = author.map((a) => (a === UNKNOWN_AUTHOR ? "" : a));
 	}
 	const hashtag = many(params, "hashtag");
 	if (hashtag) {
@@ -123,7 +134,7 @@ export function serializeQuery(query: PostQuery): string {
 		params.set("q", query.q);
 	}
 	for (const author of query.author ?? []) {
-		params.append("author", author);
+		params.append("author", author === "" ? UNKNOWN_AUTHOR : author);
 	}
 	for (const tag of query.hashtag ?? []) {
 		params.append("hashtag", tag);

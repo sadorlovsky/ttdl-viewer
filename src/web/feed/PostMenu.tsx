@@ -10,10 +10,13 @@ import {
 	AutoScrollIcon,
 	CodeIcon,
 	CopyIcon,
+	ExternalIcon,
 	EyeOffIcon,
 	FullscreenExitIcon,
 	FullscreenIcon,
 	InfoIcon,
+	KeysIcon,
+	PanIcon,
 	PipIcon,
 	SpeedIcon,
 } from "../components/Icons.tsx";
@@ -69,6 +72,16 @@ interface PostMenuProps {
 	/** Null when this post is not a video, or the browser has no Picture-in-Picture. */
 	onPip: (() => void) | null;
 	onRawInfo: () => void;
+	/**
+	 * Opens the post where it came from — the only outbound navigation in the product.
+	 *
+	 * A row rather than a gesture on the rail's link button: an archive that promises nothing leaves
+	 * the machine should make its one exception explicit, labelled, and reachable from a keyboard,
+	 * not hidden behind a press-and-hold nobody is told about.
+	 */
+	onOpenSource: (() => void) | null;
+	/** Opens the keys-and-gestures panel. The `?` key is the other way in, and touch has no keys. */
+	onShortcuts: () => void;
 	debug: boolean;
 	onDebugChange: (on: boolean) => void;
 }
@@ -90,12 +103,16 @@ export function PostMenu({
 	fullscreen,
 	onPip,
 	onRawInfo,
+	onOpenSource,
+	onShortcuts,
 	debug,
 	onDebugChange,
 }: PostMenuProps) {
 	const rate = usePlayer((state) => state.rate);
 	const setRate = usePlayer((state) => state.setRate);
 	const autoAdvance = usePlayer((state) => state.autoAdvance);
+	const pan = usePlayer((state) => state.pan);
+	const setPan = usePlayer((state) => state.setPan);
 	const setAutoAdvance = usePlayer((state) => state.setAutoAdvance);
 
 	const sheetRef = useRef<HTMLDivElement>(null);
@@ -321,6 +338,19 @@ export function PostMenu({
 							</span>
 						</button>
 					)}
+					{onOpenSource && (
+						<button className={styles.row} onClick={run(onOpenSource)}>
+							<ExternalIcon size={20} className={styles.icon} />
+							<span className={styles.label}>Open at the source</span>
+							<span className={styles.note}>leaves the archive</span>
+						</button>
+					)}
+
+					<button className={styles.row} onClick={run(onShortcuts)}>
+						<KeysIcon size={20} className={styles.icon} />
+						<span className={styles.label}>Keys and gestures</span>
+					</button>
+
 					<button className={styles.row} onClick={run(onRawInfo)}>
 						<InfoIcon size={20} className={styles.icon} />
 						<span className={styles.label}>Raw metadata</span>
@@ -368,6 +398,20 @@ export function PostMenu({
 						<span className={styles.label}>Auto scroll</span>
 						<span className={styles.switch} data-on={autoAdvance || undefined} aria-hidden />
 					</button>
+
+					{/* Only where it has something to move: a video is not panned across. */}
+					{post.kind === "carousel" && (
+						<button
+							className={styles.row}
+							role="switch"
+							aria-checked={pan}
+							onClick={() => setPan(!pan)}
+						>
+							<PanIcon size={20} className={styles.icon} />
+							<span className={styles.label}>Photo zoom</span>
+							<span className={styles.switch} data-on={pan || undefined} aria-hidden />
+						</button>
+					)}
 
 					{onPip && (
 						<button className={styles.row} onClick={run(onPip)}>

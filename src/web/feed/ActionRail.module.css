@@ -1,7 +1,7 @@
 .rail {
 	position: absolute;
-	right: var(--rail-gap);
-	bottom: 18px;
+	right: calc(var(--rail-gap) + env(safe-area-inset-right));
+	bottom: calc(18px + env(safe-area-inset-bottom));
 	z-index: var(--z-rail);
 	display: flex;
 	flex-direction: column;
@@ -22,19 +22,40 @@
 	pointer-events: none;
 }
 
+/*
+ * The only thing in the column that names something the archive can still show you.
+ *
+ * A button rather than a picture, because the rail is otherwise a readout and this is the one item
+ * with somewhere to go — so it opts back into pointers the way copy-link does, and inherits the
+ * system's focus ring rather than a border of its own.
+ */
 .avatarSlot {
 	margin-bottom: 2px;
+	padding: 0;
+	border: 0;
+	background: none;
+	pointer-events: auto;
+	cursor: pointer;
 }
 
 /*
  * A readout, not a control strip: no hover state, no focus, no cursor change. The counts are the
  * information; the glyph is only there to say which count it is.
  */
+/*
+ * Quieter than the controls beside them, on purpose.
+ *
+ * Four glyph-and-number pairs at full white, in the position where the app this imitates puts
+ * things you press, read as buttons however inert they are. Dropping them to the second step of the
+ * text ramp leaves the data perfectly legible and lets the two things that *do* something — the
+ * avatar and copy-link — be the brightest items in the column.
+ */
 .item {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 3px;
+	color: var(--text-2);
 	cursor: default;
 }
 
@@ -45,26 +66,9 @@
 }
 
 .count {
-	font-size: 12px;
+	font-size: 11.5px;
 	font-weight: 500;
 	letter-spacing: 0.01em;
-}
-
-/* The one genuinely interactive item, because it is purely local — and so the one thing in the
-   column that takes pointers back off the slide beneath. */
-.copy {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 4px;
-	color: inherit;
-	opacity: 0.9;
-	pointer-events: auto;
-	transition: opacity var(--dur-fast) var(--ease);
-}
-
-.copy:hover {
-	opacity: 1;
 }
 
 .disc {
@@ -92,7 +96,9 @@
 	display: block;
 	width: 100%;
 	height: 100%;
-	background: linear-gradient(135deg, #3a3a3a, #1a1a1a);
+	/* Both stops on the ladder: `#3a3a3a` sat two steps past the ceiling the system states, and
+	   `#1a1a1a` was off it in the other direction. */
+	background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
 }
 
 @keyframes spin {

@@ -5,6 +5,22 @@
 	background: #000;
 }
 
+/*
+ * Present to assistive technology, absent from the screen. Not `display: none`, which would take
+ * it out of the accessibility tree along with everything else.
+ */
+.srOnly {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
 .loading {
 	display: grid;
 	place-items: center;
@@ -83,7 +99,7 @@
 	transition: opacity var(--dur) var(--ease);
 }
 
-.hint {
+.clearHint {
 	position: absolute;
 	left: 50%;
 	bottom: 12%;
@@ -130,14 +146,26 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	/* Clears the carousel's story-segment bar, which lives above it. */
-	padding: 24px 16px 14px;
+	/* Clears the status bar, on a screen that has one. */
+	padding: calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 14px
+		calc(16px + env(safe-area-inset-left));
 	background: linear-gradient(rgb(0 0 0 / 0.4), transparent);
 	pointer-events: none;
 }
 
 .chrome > * {
 	pointer-events: auto;
+}
+
+/*
+ * Pushed clear of the story-segment bar, which only exists on a carousel.
+ *
+ * The segments' hit boxes are 32px tall so a thumb can reach them, and they paint above this band —
+ * so on a carousel the top third of Back, Mute and Raw metadata answered "go to image 1" instead.
+ * The buttons keep their whole target; the bar keeps its whole target; they simply stop sharing.
+ */
+.chrome[data-kind="carousel"] {
+	padding-top: calc(41px + env(safe-area-inset-top));
 }
 
 .chromeRight {
@@ -173,7 +201,7 @@
 	top: 70px;
 	right: 16px;
 	z-index: var(--z-overlay);
-	color: rgb(255 255 255 / 0.5);
+	color: var(--text-3);
 	font-size: 11.5px;
 	font-variant-numeric: tabular-nums;
 	text-shadow: var(--shadow-text);
@@ -230,6 +258,106 @@
 	line-height: 1.5;
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+/*
+ * The one-time gesture hint.
+ *
+ * Top centre because the bottom of this screen is already spoken for — caption left, rail right,
+ * scrubber across the foot — and because a tip that covers the frame teaches the wrong lesson
+ * about what the screen is for. It never blocks a tap: the first one both pauses the post and
+ * retires the hint for good.
+ */
+.hint {
+	position: absolute;
+	top: 70px;
+	left: 50%;
+	z-index: var(--z-overlay);
+	max-width: calc(100% - 140px);
+	padding: 7px 14px;
+	border-radius: var(--radius-pill);
+	background: rgb(0 0 0 / 0.62);
+	backdrop-filter: blur(6px);
+	color: var(--text);
+	font-size: 14px;
+	text-align: center;
+	text-shadow: var(--shadow-text);
+	pointer-events: none;
+	transform: translateX(-50%);
+	animation: hintIn var(--dur-slow) var(--ease) both;
+}
+
+@keyframes hintIn {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -4px);
+	}
+}
+
+/* Which half of the hint is true depends on what the visitor is holding, not on how wide it is. */
+.hintKeys {
+	display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.hintTouch {
+		display: none;
+	}
+
+	.hintKeys {
+		display: inline;
+	}
+}
+
+.kbd {
+	display: inline-block;
+	min-width: 24px;
+	padding: 3px 6px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--surface-2);
+	color: var(--text);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.2;
+	text-align: center;
+}
+
+.keys {
+	flex: 1;
+	padding: 16px;
+	overflow-y: auto;
+}
+
+.keysGroup {
+	margin-bottom: 10px;
+	color: var(--text-3);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.keyList {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: baseline;
+	gap: 9px 14px;
+	margin: 0 0 22px;
+}
+
+.keyList dt {
+	display: flex;
+	gap: 4px;
+	justify-content: flex-end;
+	color: var(--text-3);
+	font-size: 12px;
+}
+
+.keyList dd {
+	margin: 0;
+	color: var(--text-2);
+	font-size: 14px;
 }
 
 .drawerEmpty {

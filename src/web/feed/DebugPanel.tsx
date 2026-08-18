@@ -36,7 +36,7 @@ export function DebugPanel({ scroller }: { scroller: RefObject<HTMLElement | nul
 			}
 			const buffered = media.buffered.length ? media.buffered.end(0).toFixed(1) : "0";
 			const data = slide?.dataset ?? {};
-			const flags = ["active", "ready", "held", "paused"]
+			const flags = ["active", "ready", "held", "paused", "failed"]
 				.filter((flag) => data[flag] !== undefined)
 				.join(" ");
 			// The count is the tell for a resource leak: it should sit at the window size and stay

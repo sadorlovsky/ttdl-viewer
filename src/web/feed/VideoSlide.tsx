@@ -3,6 +3,7 @@ import type { Post } from "../../shared/types.ts";
 import { PlayIcon } from "../components/Icons.tsx";
 import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
+import type { SlideControls } from "./controls.ts";
 import { Scrubber } from "./Scrubber.tsx";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
@@ -14,6 +15,14 @@ interface VideoSlideProps {
 	distance: number;
 	onPausedChange: (paused: boolean) => void;
 	registerMedia: (element: HTMLVideoElement | null) => void;
+	/**
+	 * Hands the feed a way to pause and seek this post.
+	 *
+	 * Without it the keyboard reaches for the element directly, and `onPause` below reads a pause it
+	 * was not told about as the browser stopping the video on its own — so Space paused the post for
+	 * a frame and the slide immediately started it again.
+	 */
+	registerControls: (id: string, controls: SlideControls | null) => void;
 	/**
 	 * Whether this slide may buffer the whole file yet. Neighbours wait until the active slide can
 	 * play, so it wins the race for the first frame instead of competing with four others.
@@ -42,6 +51,57 @@ const HAVE_FUTURE_DATA = 3;
 /** How many times an unasked-for pause is taken back before the element is left alone. */
 const MAX_RESUMES = 3;
 
+/** MediaError codes. Only the two that describe the file itself are named; see `describeFailure`. */
+const MEDIA_ERR_DECODE = 3;
+const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+
+interface Failure {
+	/** Short flag, for the slide's data attributes and `?debug=1`. */
+	flag: string;
+	message: string;
+	/** A command that would actually fix it, or null when re-fetching would fix nothing. */
+	command: string | null;
+}
+
+/**
+ * What to say about a video that will not play, and what would fix it.
+ *
+ * Only a permanent fault earns an explanation. `MEDIA_ERR_ABORTED` and `MEDIA_ERR_NETWORK` are
+ * properties of the moment rather than of the file — a load cut short, a server that went away
+ * mid-stream — and both come back on a second attempt, so those keep the play badge and a tap
+ * runs the load again. A file that is missing, truncated, or in a codec this browser will not
+ * decode fails identically every time, and offering a play button for one is the lie this state
+ * exists to stop telling.
+ *
+ * The recovery has to match the fault too: re-fetching the post answers a missing or truncated
+ * file and answers nothing at all about a dropped connection.
+ */
+function describeFailure(
+	code: number | null,
+	refusal: string | null,
+	handle: string,
+): Failure | null {
+	const refetch = handle ? `./ttdl.py get @${handle}` : "./ttdl.py get";
+
+	if (code === MEDIA_ERR_DECODE) {
+		return {
+			flag: "decode",
+			message:
+				"This video is on disk but could not be decoded. The download may have been cut short.",
+			command: refetch,
+		};
+	}
+	if (code === MEDIA_ERR_SRC_NOT_SUPPORTED || refusal === "NotSupportedError") {
+		return {
+			flag: "unsupported",
+			message:
+				"This video could not be played. The file may be missing, or it may be in a format this browser cannot decode.",
+			command: refetch,
+		};
+	}
+	return null;
+}
+
 /** Anything appreciably off 9:16 gets the blurred backdrop, which makes it look intentional. */
 function needsBackdrop(post: Post): boolean {
 	const ratio = post.media.aspectRatio;
@@ -54,6 +114,7 @@ export function VideoSlide({
 	distance,
 	onPausedChange,
 	registerMedia,
+	registerControls,
 	mayBuffer,
 	onReady,
 	suspended,
@@ -78,6 +139,8 @@ export function VideoSlide({
 	 * slide being scrolled away from mid-call and is not worth a control at all.
 	 */
 	const [refused, setRefused] = useState<string | null>(null);
+	/** The element's own `error.code`, which the `error` event does not carry. */
+	const [mediaError, setMediaError] = useState<number | null>(null);
 
 	/**
 	 * Mirror of `suspended` that the media event handlers read.
@@ -106,6 +169,17 @@ export function VideoSlide({
 
 	/** Held fast by a press near the leading edge; also what puts the readout on screen. */
 	const [boosted, setBoosted] = useState(false);
+	/**
+	 * Out of data and waiting for more — not paused, and not broken.
+	 *
+	 * The archive is served off a disk that may be a NAS across a wireless link, which is the scene
+	 * PRODUCT.md documents. Nothing said so: a large post showed a poster and silence, and a slow
+	 * post was indistinguishable from a dead one for the whole wait — the exact ambiguity the
+	 * failure copy exists to remove, reintroduced by having nothing to say.
+	 */
+	const [buffering, setBuffering] = useState(false);
+	/** ...and has waited long enough that a moving bar alone stops answering the question. */
+	const [slow, setSlow] = useState(false);
 
 	// Declared before the effects that call `press.cancel`, and reading the toggle through a ref so
 	// the handlers it produces keep one identity for the slide's lifetime.
@@ -324,6 +398,15 @@ export function VideoSlide({
 		if (!video) {
 			return;
 		}
+		/*
+		 * An element that stopped on an error does not start again on play() alone; the resource
+		 * selection algorithm has to be run a second time. Only a fault worth retrying leaves a badge
+		 * on screen to be tapped, so this is the retry for exactly those.
+		 */
+		if (video.error) {
+			setMediaError(null);
+			video.load();
+		}
 		if (video.paused) {
 			userPausedRef.current = false;
 			resumes.current = 0;
@@ -345,6 +428,39 @@ export function VideoSlide({
 		toggle();
 	};
 
+	/** Five seconds, the same jump the arrow keys made when they reached past this slide. */
+	const step = (delta: number) => {
+		const video = videoRef.current;
+		if (!video || !Number.isFinite(video.duration)) {
+			return;
+		}
+		video.currentTime = Math.min(video.duration, Math.max(0, video.currentTime + delta * 5));
+	};
+
+	// Registered through a ref for the same reason the carousel does it: the slide hands the feed
+	// one stable pair of functions rather than re-registering itself on every render.
+	const latest = useRef<SlideControls>({ toggle, step });
+	latest.current = { toggle, step };
+	useEffect(() => {
+		const id = post.id;
+		registerControls(id, {
+			toggle: () => latest.current.toggle(),
+			step: (delta) => latest.current.step(delta),
+		});
+		return () => registerControls(id, null);
+	}, [registerControls, post.id]);
+
+	useEffect(() => {
+		if (!buffering) {
+			setSlow(false);
+			return;
+		}
+		const timer = setTimeout(() => setSlow(true), 4000);
+		return () => clearTimeout(timer);
+	}, [buffering]);
+
+	const failure = describeFailure(mediaError, refused, post.author.handle);
+
 	return (
 		// The flags are on the element so the debug readout can report them without this component
 		// having to know the panel exists, and so a stuck slide can be read straight out of the
@@ -363,12 +479,22 @@ export function VideoSlide({
 			data-active={active || undefined}
 			data-ready={ready || undefined}
 			data-refused={refused || undefined}
+			data-failed={failure?.flag}
 			data-held={suspended || undefined}
 			data-paused={paused || undefined}
 			{...press.handlers}
 		>
 			{needsBackdrop(post) && post.cover && (
 				<img src={post.cover.url} alt="" className={styles.backdrop} aria-hidden />
+			)}
+
+			{/* Present, not failed, and with no frame to show — see `.emptyStage`. */}
+			{!post.cover && !ready && !failure && (
+				<div className={styles.emptyStage} aria-hidden>
+					<span className={styles.emptyGlyph}>
+						{(post.author.handle || post.author.name || "?").trim().charAt(0).toUpperCase()}
+					</span>
+				</div>
 			)}
 
 			<video
@@ -383,8 +509,13 @@ export function VideoSlide({
 				// Buffering is staged: the active slide always may, neighbours only once it can
 				// play, and the outer ring never gets past its dimensions.
 				preload={mayBuffer ? "auto" : "metadata"}
+				// The code lives on the element; the error event itself carries nothing.
+				onError={() => setMediaError(videoRef.current?.error?.code ?? MEDIA_ERR_SRC_NOT_SUPPORTED)}
+				onWaiting={() => setBuffering(true)}
+				onStalled={() => setBuffering(true)}
 				onPlay={() => setPaused(false)}
 				onPlaying={() => {
+					setBuffering(false);
 					resumes.current = 0;
 					setRefused(null);
 				}}
@@ -395,6 +526,8 @@ export function VideoSlide({
 				}}
 				onPause={(event) => {
 					setPaused(true);
+					// A pause is an answer; it is not the element still reading.
+					setBuffering(false);
 					/*
 					 * The speaker button stops this element on purpose, so that the play() it issues
 					 * next is a real one and can carry the sound with it. That pause arrives here a
@@ -451,10 +584,19 @@ export function VideoSlide({
 			 * costs nothing that matters: the slide's own tap is what starts the post either way.
 			 * The element stays a button so it keeps its place in the tab order and its label.
 			 */}
-			{paused && (ready || refused) && !suspended && (
+			{paused && !failure && (ready || refused) && !suspended && !failure && (
 				<button className={styles.playBadge} onClick={toggle} aria-label="Play">
 					<PlayIcon size={34} />
 				</button>
+			)}
+
+			{failure && (
+				// Polite, not assertive: arriving on a dead post is worth saying, and not worth cutting
+				// the post's own announcement short to say.
+				<div className={`${styles.broken} ${styles.brokenOver}`} role="status">
+					<p>{failure.message}</p>
+					{failure.command && <code>{failure.command}</code>}
+				</div>
 			)}
 
 			{/* Without this the post simply runs fast for no visible reason, and the gesture reads as
@@ -465,7 +607,32 @@ export function VideoSlide({
 				</div>
 			)}
 
-			{active && !suspended && !chromeHidden && <Scrubber mediaRef={videoRef} active={active} />}
+			{/*
+			 * The post's own box, the way the carousel draws its segments against it.
+			 *
+			 * Left on the slide, these spanned the window: under a 453px video on a desktop screen
+			 * the scrub bar ran the full 1397px, so dragging in the black margin scrubbed a video
+			 * that was not there — and the design system names the rule that forbids it.
+			 */}
+			<div className={styles.frame}>
+				{buffering && !failure && active && (
+					<div className={styles.buffering} aria-hidden>
+						<span className={styles.bufferingBar} />
+					</div>
+				)}
+
+				{slow && !failure && active && (
+					// Said once the bar has been moving long enough to stop answering on its own. The
+					// archive's own vocabulary: this is a file being read, not a stream being fetched.
+					<p className={styles.stillReading} role="status">
+						still reading from disk
+					</p>
+				)}
+
+				{active && !suspended && !chromeHidden && !failure && (
+					<Scrubber mediaRef={videoRef} active={active} />
+				)}
+			</div>
 		</div>
 	);
 }

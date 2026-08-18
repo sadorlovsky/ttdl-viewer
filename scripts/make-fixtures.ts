@@ -14,6 +14,7 @@ import {
 	copyFileSync,
 	existsSync,
 	mkdirSync,
+	readFileSync,
 	rmSync,
 	utimesSync,
 	writeFileSync,
@@ -425,6 +426,10 @@ class ArchiveWriter {
 		clone(src, join(this.dir, name));
 	}
 
+	writeBytes(name: string, content: Uint8Array): void {
+		writeFileSync(join(this.dir, name), content);
+	}
+
 	record(id: string, timestamp: number, files: string[]): void {
 		this.stamp(files, timestamp);
 		this.posts.push({ id, timestamp, files });
@@ -578,6 +583,15 @@ interface VideoPostOptions {
 	withCover?: boolean;
 	coverExt?: ".jpg" | ".jpeg" | ".webp" | ".png";
 	legacyArtist?: boolean;
+	/**
+	 * Write only the opening bytes of the video: a real header with no playable stream.
+	 *
+	 * This is the download interrupted part-way, and it is the one failure the indexer cannot see.
+	 * The file is named correctly and is not empty, so the post is complete by every rule ttdl and
+	 * the scanner apply — it is only the browser, at play time, that discovers there is nothing to
+	 * decode. Nothing else in these fixtures reaches the feed's media-failure state.
+	 */
+	truncatedVideo?: boolean;
 }
 
 function addVideoPost(o: VideoPostOptions): string {
@@ -591,7 +605,11 @@ function addVideoPost(o: VideoPostOptions): string {
 	const files: string[] = [];
 
 	const videoPath = video(o.shape);
-	o.archive.copy(`${stem}.mp4`, videoPath);
+	if (o.truncatedVideo) {
+		o.archive.writeBytes(`${stem}.mp4`, readFileSync(videoPath).subarray(0, 2048));
+	} else {
+		o.archive.copy(`${stem}.mp4`, videoPath);
+	}
 	files.push(`${stem}.mp4`);
 
 	if (o.withCover !== false) {
@@ -814,6 +832,17 @@ function buildTestUser(root: string): void {
 		images: 5,
 		expected: 8,
 		withMarker: false,
+	});
+
+	// A video whose file is a header and nothing else. Indexes as a complete post, because it is
+	// one by every rule that can be applied to a filename and a byte count; fails at play time.
+	addVideoPost({
+		archive: a,
+		author,
+		timestamp: next(),
+		shape: SHAPES[0] as VideoSpec,
+		description: "the download that stopped half way",
+		truncatedVideo: true,
 	});
 
 	// A state file with no count at all: the legacy "one image is enough" rule applies.

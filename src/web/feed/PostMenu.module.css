@@ -44,7 +44,7 @@
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
-	border-radius: 16px 16px 0 0;
+	border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
 	background: rgb(20 20 20 / 0.96);
 	backdrop-filter: blur(20px);
 	/* The drag reads this back and writes to it, so it is a plain translate and nothing else. */

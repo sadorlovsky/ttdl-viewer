@@ -34,14 +34,30 @@
  * A scaled, blurred copy of the cover behind non-9:16 media. Without it an archived 4:3 post
  * reads as broken; with it, it reads as letterboxed on purpose.
  */
+/*
+ * Fills the bands the picture leaves, and nothing beyond them.
+ *
+ * Sized to the slide it covered the whole window: on a desktop screen a 592px picture sat inside a
+ * 1923px blur of itself, which made the archived image look like a thumbnail of its own wallpaper
+ * and replaced the true black the tonal ladder is calibrated from. Bound to the stage instead, it
+ * does the job it was added for — a letterboxed post looks composed rather than cropped — and the
+ * ground either side of the stage stays `#000`.
+ */
 .backdrop {
 	position: absolute;
-	inset: -10%;
-	width: 120%;
-	height: 120%;
+	top: 0;
+	left: 50%;
+	/* Height first, then the ratio. On a replaced element `top`/`bottom` do not pin the box the way
+	   they do on the stack's div: the ratio resolved against the width instead and produced a blur
+	   three times the height of the window. */
+	height: 100%;
+	width: auto;
+	aspect-ratio: var(--stage, 9 / 16);
+	max-width: 100%;
 	object-fit: cover;
 	filter: blur(48px) brightness(0.35);
-	transform: scale(1.1);
+	/* Overscanned so the blur samples picture at the edges rather than fading into nothing. */
+	transform: translateX(-50%) scale(1.1);
 	pointer-events: none;
 }
 
@@ -66,7 +82,8 @@
 	inset: 0;
 	display: grid;
 	place-items: center;
-	color: rgb(255 255 255 / 0.85);
+	/* The one control offered at this moment; it reads over any frame behind it. */
+	color: var(--text);
 	filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.5));
 	animation: fade var(--dur) var(--ease);
 	/* It covers the slide, so as a live target it would swallow every gesture aimed at the post
@@ -104,6 +121,9 @@
 	transform: translateX(-50%);
 	aspect-ratio: var(--stage, 9 / 16);
 	max-width: 100%;
+	/* The pan scales the picture past its own box; without this it spills over the neighbouring
+	   chrome instead of being cropped by the frame it is composed in. */
+	overflow: hidden;
 	cursor: pointer;
 }
 
@@ -119,6 +139,18 @@
 
 .photo[data-on] {
 	opacity: 1;
+}
+
+/*
+ * Keyed off the attribute, not off being the visible photo.
+ *
+ * The duration is supplied inline and only when the effect is on. Naming the animation on
+ * `[data-on]` alone therefore left it running at the initial `0s` with `forwards`, which is not
+ * "no animation": it is the end keyframe held forever. Every archived photo sat at 106% and lost
+ * about three percent off each edge to the frame — with the switch off, and on the one post kind
+ * whose whole value is the picture.
+ */
+.photo[data-on][data-pan] {
 	animation-name: kenburns-in;
 	animation-timing-function: linear;
 	animation-fill-mode: forwards;
@@ -146,7 +178,95 @@
 	}
 }
 
+/*
+ * The picture's place, before there is a picture in it.
+ *
+ * A post that is present, has no cover to poster from and has not failed yet reached no branch at
+ * all and drew an unlit rectangle — on the one screen where the product's promise is that captured
+ * data is never misrepresented, saying nothing is the one thing it must not do. The treatment is
+ * the archive card's own answer to a missing cover, so "no cover for this post" reads as a stated
+ * fact rather than as a void, and the waiting bar below it reads as work rather than as the only
+ * lit pixel.
+ */
+.emptyStage {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: linear-gradient(150deg, var(--surface-3), var(--surface));
+	pointer-events: none;
+}
+
+.emptyGlyph {
+	color: var(--text-4);
+	font-size: 20px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+}
+
+/*
+ * Waiting for data, drawn where a scrubber would be.
+ *
+ * Deliberately the same 2.5px bar the carousel's segments use rather than a spinner in the middle
+ * of the picture: the post is the thing being looked at, and an indeterminate bar at the edge says
+ * "working" without covering the frame it is talking about.
+ */
+.buffering {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2.5px;
+	overflow: hidden;
+	background: rgb(255 255 255 / 0.12);
+	pointer-events: none;
+}
+
+.bufferingBar {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 30%;
+	border-radius: 2px;
+	background: var(--text-2);
+	animation: buffering 1.5s var(--ease) infinite;
+}
+
+@keyframes buffering {
+	from {
+		transform: translateX(-110%);
+	}
+	to {
+		transform: translateX(440%);
+	}
+}
+
+/*
+ * Above the picture, not below it.
+ *
+ * The bottom band is spoken for three times over — caption left, rail right, scrubber across — so a
+ * sentence centred there landed on top of the caption's last line, which on a post with no metadata
+ * is the archive-truth line. This sits in the empty top-centre of the stage instead, clear of the
+ * chrome band above it.
+ */
+.stillReading {
+	position: absolute;
+	top: calc(96px + env(safe-area-inset-top));
+	left: 50%;
+	color: var(--text-3);
+	font-size: 12.5px;
+	text-shadow: var(--shadow-text);
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+	.bufferingBar {
+		/* Still moving, because a still bar reads as a stall rather than as work in progress —
+		   just without the travel. */
+		animation-duration: 3s;
+	}
+
 	.photo[data-on] {
 		animation: none;
 	}
@@ -202,7 +322,8 @@
 	position: absolute;
 	/* Pulled up by the difference between the bar and the target it now sits inside, so the bar
 	   stays where it has always been drawn. */
-	inset: 3px 12px auto;
+	inset: calc(3px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) auto
+		calc(12px + env(safe-area-inset-left));
 	display: flex;
 	gap: 3px;
 	transition: opacity var(--dur) var(--ease);
@@ -234,7 +355,14 @@
 	flex: 1;
 	display: flex;
 	align-items: center;
-	height: 16px;
+	/*
+	 * The bar stays 2.5px; the target around it does not.
+	 *
+	 * At 16px this was the primary navigation control of a carousel, under the 24px floor WCAG
+	 * 2.5.8 sets and nowhere near a thumb — on a product whose documented scene is a phone over the
+	 * LAN. The box grows downward from the same top edge, so the bar is drawn exactly where it was.
+	 */
+	height: 32px;
 	/* The frame is inert so it cannot shadow the picture; these are the only things in it that
 	   are meant to be pressed. */
 	pointer-events: auto;
@@ -270,8 +398,8 @@
 /* Below the feed chrome, which owns the top-right corner. */
 .counter {
 	position: absolute;
-	top: 88px;
-	right: 16px;
+	top: calc(88px + env(safe-area-inset-top));
+	right: calc(16px + env(safe-area-inset-right));
 	padding: 2px 8px;
 	border-radius: var(--radius-pill);
 	background: rgb(0 0 0 / 0.45);
@@ -299,5 +427,22 @@
 .broken code {
 	font-family: var(--font-mono);
 	font-size: 12px;
-	color: var(--text-4);
+	/* The recovery command is the most useful thing on a broken post; --text-4 left it at 2.7:1. */
+	color: var(--text-3);
+}
+
+/*
+ * The video variant sits over the frame rather than replacing it.
+ *
+ * A post whose video is gone usually still has its cover, and leaving it under the explanation is
+ * what says *which* post this is. It goes behind blur rather than behind a flat scrim, the way
+ * every other layer over media in this system does; the tint is what guarantees the text a
+ * readable ground over a frame nobody can predict.
+ */
+.brokenOver {
+	position: absolute;
+	inset: 0;
+	align-content: center;
+	background: rgb(0 0 0 / 0.92);
+	backdrop-filter: blur(12px);
 }

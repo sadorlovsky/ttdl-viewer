@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Post } from "../../shared/types.ts";
 import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
-import { bankLap, type Lap, rebase } from "./clock.ts";
+import { bankLap, type Lap, shiftFor } from "./clock.ts";
+import type { SlideControls } from "./controls.ts";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
 
@@ -20,7 +21,7 @@ interface CarouselSlideProps {
 	 * fallback is running the element is not the clock at all. Both keys have to go through the
 	 * component that owns that state.
 	 */
-	registerControls: (id: string, controls: CarouselControls | null) => void;
+	registerControls: (id: string, controls: SlideControls | null) => void;
 	/** Same staged-buffering rule the video slides follow, so both media paths agree. */
 	mayBuffer: boolean;
 	/** Held for the long-press sheet; see the video slide, which reads it the same way. */
@@ -31,11 +32,6 @@ interface CarouselSlideProps {
 	onRestoreChrome: () => void;
 	/** Auto scroll is on and the slideshow has been all the way round once. */
 	onEnded: () => void;
-}
-
-export interface CarouselControls {
-	toggle: () => void;
-	step: (delta: number) => void;
 }
 
 const PER_IMAGE_MIN = 1.5;
@@ -78,6 +74,7 @@ export function CarouselSlide({
 	const muted = usePlayer((state) => state.muted);
 	const volume = usePlayer((state) => state.volume);
 	const rate = usePlayer((state) => state.rate);
+	const pan = usePlayer((state) => state.pan);
 	const autoAdvance = usePlayer((state) => state.autoAdvance);
 
 	const urls = post.photos?.urls ?? [];
@@ -107,6 +104,8 @@ export function CarouselSlide({
 	onEndedRef.current = onEnded;
 	/** Last position within the image cycle, so a wrap round to the start can be spotted. */
 	const previous = useRef(0);
+	/** How far the images are held ahead of the clock, so stepping one does not move the track. */
+	const shiftRef = useRef(0);
 
 	/** Held fast by a press near the leading edge; also what puts the readout on screen. */
 	const [boosted, setBoosted] = useState(false);
@@ -229,6 +228,7 @@ export function CarouselSlide({
 				// The laps belong to this visit; coming back to the post starts it over.
 				lapRef.current = { banked: 0, last: 0 };
 				previous.current = 0;
+				shiftRef.current = 0;
 				setIndex(0);
 				setProgress(0);
 			}
@@ -269,7 +269,7 @@ export function CarouselSlide({
 			if (audio && !fallbackRef.current) {
 				lapRef.current = bankLap(lapRef.current, audio.currentTime, audio.duration);
 			}
-			const within = ((elapsed() % cycle) + cycle) % cycle;
+			const within = (((elapsed() + shiftRef.current) % cycle) + cycle) % cycle;
 			/*
 			 * A slideshow has no `ended` event to wait for: the audio loops on purpose, because it
 			 * is the clock. What "finished" means here is the images having been all the way round,
@@ -319,21 +319,18 @@ export function CarouselSlide({
 	const seekToSegment = useCallback(
 		(segment: number) => {
 			const at = segment * perImage;
-			const audio = audioRef.current;
-			if (fallbackRef.current) {
-				fallbackRef.current = { startedAt: performance.now(), offset: at };
-			} else if (audio) {
-				// Re-based rather than left for the next tick to read as the track coming round: a
-				// seek backwards is not a lap, and counting it as one would put the images a whole
-				// track ahead of the sound the moment anyone touched a segment.
-				const { into, ...lap } = rebase(at, audio.duration || perImage * total);
-				lapRef.current = lap;
-				audio.currentTime = into;
-			}
+			// The track is left exactly where it is. Moving to another image is a request about the
+			// pictures, and seeking the audio to serve it dropped the music into the middle of a bar
+			// on every arrow key, every swipe and every tap on a segment.
+			shiftRef.current = shiftFor(at, elapsed(), perImage * total);
+			// Brought into step with the reading the next tick will take. Without it the jump
+			// backwards looks like the cycle coming round, and auto scroll leaves for the next post
+			// the moment anyone steps back an image.
+			previous.current = at;
 			setIndex(segment);
 			setProgress(0);
 		},
-		[perImage, total],
+		[perImage, total, elapsed],
 	);
 
 	const toggle = useCallback(() => {
@@ -382,7 +379,7 @@ export function CarouselSlide({
 	// Register once for the slide's lifetime. `step` closes over the image index, so it gets a new
 	// identity every time the slideshow advances; going through a ref keeps that churn out of the
 	// registration instead of tearing the map entry down and rebuilding it during playback.
-	const latest = useRef<CarouselControls>({ toggle, step });
+	const latest = useRef<SlideControls>({ toggle, step });
 	latest.current = { toggle, step };
 
 	tap.current = () => {
@@ -453,7 +450,16 @@ export function CarouselSlide({
 		// keyboard drives a carousel through the controls it registers with the feed, which owns
 		// the key handling — so this needs no key handler of its own.
 		<div className={styles.slide} data-held={suspended || undefined} {...press.handlers}>
-			{post.cover && <img src={post.cover.url} alt="" className={styles.backdrop} aria-hidden />}
+			{/* The photo on screen, not the cover: the wash used to stay on image one while the
+			    slideshow ran through the other five. */}
+			{(urls[index] ?? post.cover?.url) && (
+				<img
+					src={urls[index] ?? (post.cover?.url as string)}
+					alt=""
+					className={styles.backdrop}
+					aria-hidden
+				/>
+			)}
 
 			<div className={styles.stack}>
 				{urls.map((url, i) =>
@@ -468,9 +474,10 @@ export function CarouselSlide({
 							// would fetch every image at once. Mounting is the control.
 							decoding="async"
 							// Scaled with the rate, or the pan would still be crawling across a
-							// picture the clock had already left.
-							style={{ animationDuration: `${perImage / rate}s` }}
-							data-pan={i % 2 === 0 ? "in" : "out"}
+							// picture the clock had already left. Both are left off entirely when the
+							// effect is off, so nothing animates a picture that was never meant to move.
+							style={pan ? { animationDuration: `${perImage / rate}s` } : undefined}
+							data-pan={pan ? (i % 2 === 0 ? "in" : "out") : undefined}
 						/>
 					) : null,
 				)}

@@ -23,7 +23,7 @@ const base = (size: number) => ({
 export const HeartIcon = ({ size = 32, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path
-			d="M12 20.5s-7.5-4.7-7.5-9.6A4.4 4.4 0 0 1 12 8.2a4.4 4.4 0 0 1 7.5 2.7c0 4.9-7.5 9.6-7.5 9.6Z"
+			d="M12 20.94 10.6 19.6C5.4 14.86 2 11.72 2 7.87 2 4.72 4.42 2.25 7.5 2.25c1.74 0 3.41.83 4.5 2.14 1.09-1.31 2.76-2.14 4.5-2.14 3.08 0 5.5 2.47 5.5 5.62 0 3.85-3.4 6.99-8.6 11.74L12 20.94Z"
 			fill="currentColor"
 		/>
 	</svg>
@@ -32,7 +32,7 @@ export const HeartIcon = ({ size = 32, className }: IconProps) => (
 export const CommentIcon = ({ size = 32, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path
-			d="M4 5.5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8.6L7 20.3v-3.8H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z"
+			d="M12 2.75c-5.66 0-10.25 3.6-10.25 8.05 0 2.5 1.45 4.74 3.72 6.22-.23 1.4-.9 2.68-1.94 3.64 -.4.37-.16 1.04.38 1.09 2.42.2 4.62-.63 6.28-1.77.58.08 1.18.13 1.81.13 5.66 0 10.25-3.6 10.25-8.05S17.66 2.75 12 2.75Z"
 			fill="currentColor"
 		/>
 	</svg>
@@ -41,7 +41,7 @@ export const CommentIcon = ({ size = 32, className }: IconProps) => (
 export const BookmarkIcon = ({ size = 32, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path
-			d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2L5.5 20.5v-16a1 1 0 0 1 1-1Z"
+			d="M6.5 2.5h11c1.24 0 2.25 1.01 2.25 2.25v15.9c0 1-1.12 1.6-1.95 1.04L12 17.6l-5.8 4.09 C5.37 22.25 4.25 21.65 4.25 20.65V4.75c0-1.24 1.01-2.25 2.25-2.25Z"
 			fill="currentColor"
 		/>
 	</svg>
@@ -50,7 +50,7 @@ export const BookmarkIcon = ({ size = 32, className }: IconProps) => (
 export const ShareIcon = ({ size = 32, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path
-			d="M21 12 9.5 5.2v3.9C5 9.6 2.8 12.9 3 19c1.7-3.6 4-4.8 6.5-4.8v3.9L21 12Z"
+			d="M22.1 11.13 10.75 2.86c-.7-.51-1.68-.01-1.68.85v3.62C4.3 7.79 1.6 11.5 1.25 19.35 c-.04.93 1.2 1.27 1.63.44 1.86-3.6 4.13-5.2 6.19-5.28v3.62c0 .86.98 1.36 1.68.85 l11.35-8.27c.58-.42.58-1.16 0-1.58Z"
 			fill="currentColor"
 		/>
 	</svg>
@@ -86,25 +86,35 @@ export const StackIcon = ({ size = 16, className }: IconProps) => (
 
 export const SearchIcon = ({ size = 18, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
-		<circle cx="10.5" cy="10.5" r="6" stroke="currentColor" strokeWidth="2" />
-		<path d="m15.2 15.2 4.3 4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+		<circle cx="10.5" cy="10.5" r="6" stroke="currentColor" strokeWidth="1.8" />
+		<path d="m15.2 15.2 4.3 4.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
 	</svg>
 );
 
 export const MuteIcon = ({ size = 20, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
-		<path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z" fill="currentColor" />
-		<path d="m15.5 9.5 5 5m0-5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+		<path
+			d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinejoin="round"
+		/>
+		<path d="m15.5 9.5 5 5m0-5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
 	</svg>
 );
 
 export const SoundIcon = ({ size = 20, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
-		<path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z" fill="currentColor" />
+		<path
+			d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinejoin="round"
+		/>
 		<path
 			d="M15.5 9a4 4 0 0 1 0 6m2.5-8.5a7.5 7.5 0 0 1 0 11"
 			stroke="currentColor"
-			strokeWidth="2"
+			strokeWidth="1.8"
 			strokeLinecap="round"
 		/>
 	</svg>
@@ -115,7 +125,7 @@ export const BackIcon = ({ size = 20, className }: IconProps) => (
 		<path
 			d="M14.5 5.5 8 12l6.5 6.5"
 			stroke="currentColor"
-			strokeWidth="2"
+			strokeWidth="1.8"
 			strokeLinecap="round"
 			strokeLinejoin="round"
 		/>
@@ -181,6 +191,50 @@ export const AutoScrollIcon = ({ size = 20, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path
 			d="m6 6 6 5 6-5m-12 7 6 5 6-5"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const KeysIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path d="M3.5 6.5h17v11h-17z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+		<path
+			d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+		/>
+	</svg>
+);
+
+export const PanIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path d="M4.5 6.5h15v11h-15z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+		<path
+			d="M14.5 9.5 10 14m4.5-4.5h-3.2m3.2 0v3.2"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const ExternalIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="M13.5 4.5h6v6M19.5 4.5 11 13"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+		<path
+			d="M18 14.5v3.75A2.25 2.25 0 0 1 15.75 20.5h-10A2.25 2.25 0 0 1 3.5 18.25v-10A2.25 2.25 0 0 1 5.75 6H9.5"
 			stroke="currentColor"
 			strokeWidth="1.8"
 			strokeLinecap="round"

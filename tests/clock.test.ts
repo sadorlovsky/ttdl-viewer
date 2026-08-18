@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { bankLap, type Lap, rebase } from "../src/web/feed/clock.ts";
+import { bankLap, type Lap, shiftFor } from "../src/web/feed/clock.ts";
 
 /** Read a whole run of `currentTime` samples, the way the rAF loop would. */
 function run(samples: number[], duration: number, from: Lap = { banked: 0, last: 0 }): number[] {
@@ -61,21 +61,30 @@ describe("bankLap", () => {
 	});
 });
 
-describe("rebase", () => {
-	test("a seek past the end of the track keeps the clock, and winds the track round", () => {
-		// The last of eleven images sits at 25s; an 11s track is 3s into its third lap there.
-		const { banked, into } = rebase(25, 11);
-		expect(into).toBeCloseTo(3);
-		expect(banked + into).toBeCloseTo(25);
+describe("shiftFor", () => {
+	// Eleven images at two seconds each, so a full turn of the pictures is 22 seconds.
+	const cycle = 22;
+
+	test("puts the asked-for image on screen without moving the track", () => {
+		// The clock stands at 15s and the fourth image is wanted; only the offset may change.
+		const shift = shiftFor(6, 15, cycle);
+		expect((15 + shift) % cycle).toBeCloseTo(6);
 	});
 
-	test("a seek within the first lap banks nothing", () => {
-		expect(rebase(7.5, 11)).toMatchObject({ banked: 0, into: 7.5 });
+	test("stepping back is not a seek backwards in the music", () => {
+		const now = 15;
+		expect((now + shiftFor(4, now, cycle)) % cycle).toBeCloseTo(4);
+		expect((now + shiftFor(8, now, cycle)) % cycle).toBeCloseTo(8);
 	});
 
-	test("the next reading after a seek is not mistaken for a lap", () => {
-		const { into, ...lap } = rebase(25, 11);
-		// The tick that follows reads exactly what the seek asked for; nothing may be added.
-		expect(bankLap(lap, into, 11).banked).toBe(lap.banked);
+	test("stays inside one turn, so the offset cannot run away over a long post", () => {
+		const shift = shiftFor(2, 20, cycle);
+		expect(shift).toBeGreaterThanOrEqual(0);
+		expect(shift).toBeLessThan(cycle);
+	});
+
+	test("asks for nothing while the cadence is still unknown", () => {
+		expect(shiftFor(6, 15, 0)).toBe(0);
+		expect(shiftFor(6, 15, Number.NaN)).toBe(0);
 	});
 });
