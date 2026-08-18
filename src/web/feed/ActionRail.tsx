@@ -57,7 +57,7 @@ export function ActionRail({ post, paused }: ActionRailProps) {
 	return (
 		<div className={styles.rail}>
 			<div className={styles.avatarSlot}>
-				<Avatar seed={post.author.avatar} size={46} />
+				<Avatar seed={post.author.avatar} src={post.author.avatarUrl} size={46} />
 			</div>
 
 			{readouts.map((item) => (

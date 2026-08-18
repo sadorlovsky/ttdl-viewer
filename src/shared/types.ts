@@ -24,6 +24,40 @@ export interface AuthorSummary {
 	profileUrl: string | null;
 	postCount: number;
 	avatar: AvatarSeed;
+	/**
+	 * A local URL for `avatar.jpg`, when ttdl recorded one — never a CDN address. The seed above
+	 * stays either way: most authors in a list archive have no card, and a picture that fails to
+	 * load must fall back to something rather than to an empty circle.
+	 */
+	avatarUrl: string | null;
+}
+
+/**
+ * ttdl's `profile.json` — the author as TikTok described them on the day it was taken.
+ *
+ * Unlike everything else in an archive, this is a snapshot of something that moves, which is why
+ * `fetchedAt` travels with it and every screen showing a count shows the date too.
+ */
+export interface ProfileCard {
+	/** Unix seconds. Every number below has changed since. */
+	fetchedAt: number;
+	handle: string;
+	nickname: string | null;
+	/** The profile bio. */
+	signature: string | null;
+	bioLink: string | null;
+	verified: boolean;
+	private: boolean;
+	/** When the account itself was created. */
+	createdAt: number | null;
+	stats: {
+		followers: number | null;
+		following: number | null;
+		hearts: number | null;
+		/** TikTok's own claim about the account, not a target: an archive can hold more. */
+		videos: number | null;
+		friends: number | null;
+	};
 }
 
 export interface ArchiveCounts {
@@ -54,6 +88,8 @@ export interface Archive {
 	/** One for a profile archive, many for a list. Sorted by post count, descending. */
 	authors: AuthorSummary[];
 	primaryAuthor: AuthorSummary | null;
+	/** ttdl's author card, when `get` recorded one. A list archive never has one. */
+	card: ProfileCard | null;
 	dateRange: { first: number; last: number } | null;
 	bytes: number;
 	scannedAt: number;

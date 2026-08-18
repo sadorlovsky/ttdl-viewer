@@ -5,6 +5,7 @@ import type { Archive, ArchiveCounts, AuthorSummary, Post } from "../../shared/t
 import { buildPost, UNKNOWN_HANDLE } from "./build.ts";
 import { readInfo } from "./info.ts";
 import type { LikesIndex } from "./likes.ts";
+import { readCard } from "./profile.ts";
 import { type ArchiveScan, listArchiveDirs, readExpected, scanArchive } from "./scan.ts";
 
 export interface IndexedArchive {
@@ -96,6 +97,25 @@ function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArc
 	};
 
 	const authors = collectAuthors(posts);
+	const card = scan.card ? readCard(scan.dir) : null;
+	// Matched by the handle the card names, not by position: a directory can be renamed, and the
+	// wrong face on the wrong person is worse than no face at all. `?v=` is the picture's mtime,
+	// which is what makes the immutable cache header on the media route safe after a replacement.
+	if (card && scan.avatar) {
+		const url = `/media/${archiveId}/avatar?v=${Math.floor(scan.avatar.mtimeMs)}`;
+		for (const author of authors) {
+			if (author.handle === card.handle) {
+				author.avatarUrl = url;
+			}
+		}
+		// Again over the posts: each carries its own copy of the author, and that copy is what the
+		// feed's action rail renders.
+		for (const post of posts) {
+			if (post.author.handle === card.handle) {
+				post.author.avatarUrl = url;
+			}
+		}
+	}
 	const newest = posts[0];
 	const oldest = posts[posts.length - 1];
 
@@ -108,6 +128,7 @@ function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArc
 		counts,
 		authors,
 		primaryAuthor: kind === "profile" ? (authors[0] ?? null) : null,
+		card,
 		dateRange: newest && oldest ? { first: oldest.createdAt, last: newest.createdAt } : null,
 		bytes: scan.bytes,
 		scannedAt: Math.floor(Date.now() / 1000),

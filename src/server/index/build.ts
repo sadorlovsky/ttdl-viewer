@@ -20,6 +20,8 @@ export function authorFrom(info: NormalizedInfo | null, fallbackHandle: string):
 		profileUrl: info?.uploaderUrl ?? (handle ? `https://www.tiktok.com/@${handle}` : null),
 		postCount: 0,
 		avatar: avatarSeed(handle, name),
+		// Filled in by the registry, which is the only level that knows the archive's own card.
+		avatarUrl: null,
 	};
 }
 

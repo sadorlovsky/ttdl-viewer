@@ -434,6 +434,45 @@ class ArchiveWriter {
 		this.missing.push([id, timestamp, error]);
 	}
 
+	/**
+	 * ttdl's author card and picture, which `get` records for a profile archive (snap_profile).
+	 *
+	 * `fetched_at` is deliberately older than the newest post and the counts deliberately are not
+	 * round: the header prints the date beside them, and a card stamped with round numbers and
+	 * today's date would never exercise the thing that makes it honest.
+	 */
+	card(author: Author, picture: string): void {
+		this.write(
+			"profile.json",
+			`${JSON.stringify(
+				{
+					fetched_at: 1_787_000_000,
+					handle: author.handle,
+					nickname: author.nickname,
+					id: author.uid,
+					sec_uid: author.secUid,
+					signature: "Fixtures, and the occasional carousel 🎞\nnot a real account",
+					bio_link: "https://example.invalid/fixtures",
+					verified: true,
+					private: false,
+					created_at: 1_637_746_623,
+					avatar: "avatar.jpg",
+					stats: {
+						followers: 759_605,
+						following: 65,
+						hearts: 41_756_403,
+						// Fewer than the archive holds, as TikTok's own count routinely is.
+						videos: 31,
+						friends: 13,
+					},
+				},
+				null,
+				2,
+			)}\n`,
+		);
+		this.copy("avatar.jpg", picture);
+	}
+
 	finish(source: string | null): void {
 		const ids = this.posts.map((p) => p.id).sort();
 		this.write("archive.txt", `${ids.map((id) => `tiktok ${id}`).join("\n")}\n`);
@@ -819,6 +858,8 @@ function buildTestUser(root: string): void {
 	a.noteMissing(makeId(1_750_000_000, 9001), 1_750_000_000, "Unable to extract universal data");
 	a.noteMissing(makeId(1_740_000_000, 9002), 1_740_000_000, "Video currently unavailable");
 	a.noteMissing(makeId(1_730_000_000, 9003), 1_730_000_000, "—");
+
+	a.card(author, solidJpeg("teal", 640, 640));
 
 	a.finish(null);
 	console.log(`  testuser        ${a.posts.length} posts`);

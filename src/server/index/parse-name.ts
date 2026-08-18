@@ -41,6 +41,14 @@ export const STATE_FILES = new Set([
 	".lock",
 ]);
 
+/**
+ * ttdl's author card and its picture (ttdl.py PROFILE_CARD / PROFILE_AVATAR), written by `get`
+ * beside the posts. They belong to the archive rather than to any post in it, so they are picked
+ * out by name here instead of going through `parseName`, which would reject them anyway.
+ */
+export const PROFILE_CARD = "profile.json";
+export const PROFILE_AVATAR = "avatar.jpg";
+
 export type MediaExt = (typeof MEDIA_EXTS)[number];
 export type ThumbExt = (typeof THUMB_EXTS)[number];
 

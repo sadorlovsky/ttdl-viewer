@@ -79,7 +79,29 @@ export function mediaRoutes(registry: Registry): Record<string, Handler> {
 			return serveFile({ ...found, request });
 		};
 
+	/**
+	 * The archive's own picture, which belongs to no post and so does not go through `resolve`.
+	 * The same rule holds: the name comes from the scanner, never from the request.
+	 */
+	const avatar = (request: Request & { params: Record<string, string> }): Response => {
+		const indexed = registry.get(request.params.archiveId ?? "");
+		if (!indexed) {
+			return fail("ARCHIVE_NOT_FOUND", `No archive ${request.params.archiveId}`, 404);
+		}
+		if (!indexed.scan.avatar) {
+			return fail("MEDIA_NOT_FOUND", "This archive has no avatar", 404);
+		}
+		const path = join(indexed.scan.dir, indexed.scan.avatar.name);
+		try {
+			const st = statSync(path);
+			return serveFile({ path, size: st.size, mtimeMs: st.mtimeMs, request });
+		} catch {
+			return fail("MEDIA_NOT_FOUND", `${indexed.scan.avatar.name} is no longer on disk`, 404);
+		}
+	};
+
 	return {
+		"/media/:archiveId/avatar": avatar,
 		"/media/:archiveId/:postId/media": serve("media"),
 		"/media/:archiveId/:postId/cover": serve("cover"),
 		"/media/:archiveId/:postId/photo/:index": serve("photo"),

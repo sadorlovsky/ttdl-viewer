@@ -59,6 +59,38 @@
 	font-size: 14px;
 }
 
+.verified {
+	margin-left: 6px;
+	color: var(--accent-2);
+	font-size: 0.7em;
+	vertical-align: middle;
+}
+
+.bio {
+	margin-top: 14px;
+	max-width: 62ch;
+	color: var(--text-2);
+	font-size: 14px;
+	line-height: 1.45;
+	white-space: pre-wrap;
+}
+
+.bioLink {
+	margin-top: 4px;
+	color: var(--text-3);
+	font-size: 13px;
+	/* Shown and copyable, never a live href: opening it would be the one network request this
+	   whole app exists not to make. */
+	word-break: break-all;
+	user-select: all;
+}
+
+.recorded {
+	margin-top: 2px;
+	color: var(--text-3);
+	font-size: 13px;
+}
+
 .facts {
 	margin-top: 16px;
 	color: var(--text-2);

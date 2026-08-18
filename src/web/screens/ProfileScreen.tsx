@@ -8,7 +8,7 @@ import { Avatar } from "../components/Avatar.tsx";
 import { FilterBar } from "../components/FilterBar.tsx";
 import { BackIcon } from "../components/Icons.tsx";
 import { PostTile } from "../components/PostTile.tsx";
-import { bytes, dateRange } from "../lib/format.ts";
+import { bytes, date, dateRange } from "../lib/format.ts";
 import empty from "./Empty.module.css";
 import styles from "./ProfileScreen.module.css";
 
@@ -86,6 +86,17 @@ function ArchiveHeader({
 	].filter(Boolean);
 
 	const author = archive.primaryAuthor;
+	const card = archive.card;
+	// Counts from the card are dated, and shown as dated. The archive's own facts above are not:
+	// those are true of the files right now, while these were true on the day ttdl asked.
+	const recorded = card
+		? [
+				card.stats.followers !== null ? `${card.stats.followers.toLocaleString()} followers` : null,
+				card.stats.hearts !== null ? `${card.stats.hearts.toLocaleString()} likes` : null,
+			]
+				.filter(Boolean)
+				.join(" · ")
+		: "";
 
 	return (
 		<header className={styles.header}>
@@ -96,9 +107,16 @@ function ArchiveHeader({
 			<div className={styles.identity}>
 				{archive.kind === "profile" && author ? (
 					<>
-						<Avatar seed={author.avatar} size={96} />
+						<Avatar seed={author.avatar} src={author.avatarUrl} size={96} />
 						<div className={styles.names}>
-							<h1 className={styles.handle}>@{author.handle}</h1>
+							<h1 className={styles.handle}>
+								@{author.handle}
+								{card?.verified && (
+									<span className={styles.verified} title="Verified when this card was taken">
+										✓
+									</span>
+								)}
+							</h1>
 							{author.name && <p className={styles.nickname}>{author.name}</p>}
 						</div>
 					</>
@@ -116,11 +134,20 @@ function ArchiveHeader({
 				)}
 			</div>
 
+			{card?.signature && <p className={styles.bio}>{card.signature}</p>}
+			{card?.bioLink && <p className={styles.bioLink}>{card.bioLink}</p>}
+
 			{/*
-			 * A follower count has no honest local equivalent, so the archive's own facts go here
-			 * instead of an invented number.
+			 * Two lines rather than one, because they are two different kinds of claim. The facts
+			 * are counted from the files on disk and are true now; the card was true on the day
+			 * ttdl asked, and a follower count with no date on it is simply false a year later.
 			 */}
 			<p className={styles.facts}>{facts.join(" · ")}</p>
+			{card && recorded && (
+				<p className={styles.recorded}>
+					{recorded} · recorded {date(card.fetchedAt)}
+				</p>
+			)}
 
 			{counts.missing > 0 && (
 				<p className={styles.gap}>

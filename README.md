@@ -4,9 +4,10 @@ A read-only, fully offline viewer for archives downloaded by
 [ttdl](https://github.com/sadorlovsky/ttdl) — a short-video-app-shaped UI over the files already on
 your disk.
 
-Nothing leaves the machine it runs on. No avatar is fetched, no thumbnail is loaded from a CDN, no
-font is downloaded. That is enforced in two places rather than merely intended: a build step that
-fails on any remote reference in the bundle, and a strict CSP on the page itself.
+Nothing leaves the machine it runs on. Nothing is fetched from a CDN — not a thumbnail, not a font,
+and not the author's picture, which is shown only because ttdl already put it on disk. That is
+enforced in two places rather than merely intended: a build step that fails on any remote reference
+in the bundle, and a strict CSP on the page itself.
 
 It only ever reads. Nothing here writes to an archive, renames a file, or calls ttdl — so it cannot
 damage a download that took hours to fetch.
@@ -190,6 +191,27 @@ Two deliberate divergences from ttdl:
 `formats[]` and `thumbnails[]` are read for geometry and then **discarded**. They are most of the
 file's bytes and, more to the point, they are full of live signed CDN URLs — keeping them would
 put a remote URL one careless `<img src>` away from the render path.
+
+### The author's card
+
+`profile.json` and `avatar.jpg`, which ttdl's `get` writes for a profile archive, are read as the
+archive's own files rather than as any post's: they are picked out by name, and `parseName` never
+sees them.
+
+The card is the one thing in an archive describing something that moves — a nickname, a bio, a
+follower count — so it travels with the date ttdl took it, and the header prints that date beside
+the numbers. `readCard` validates field by field instead of casting: the file is written by another
+program and can arrive from storage half-copied, and a truncated card has to degrade to "no card"
+rather than put `undefined` where the UI calls `toLocaleString()`.
+
+The picture is matched to an author by the handle the card names, not by position, so a renamed
+directory cannot put one person's face on another's posts. It also joins the listing hash, because
+a replaced picture keeps its filename and a cached index would otherwise go on serving the old one.
+
+The seeded letter-and-hue avatar has not gone anywhere. It renders *underneath* the picture, so a
+file moved to storage falls back to it without a hole in the layout, and it is all there is for
+every author in a list archive — those have no card, because those posts come from many accounts
+and there is no one profile to ask.
 
 ## Layout
 

@@ -42,6 +42,7 @@ function makePost({ id = postId(1), createdAt = 1_704_067_200, likes = null }: O
 			profileUrl: null,
 			postCount: 0,
 			avatar: { letter: "U", hue: 0 },
+			avatarUrl: null,
 		},
 		music: null,
 		stats: { views: null, likes, comments: null, shares: null, saves: null },

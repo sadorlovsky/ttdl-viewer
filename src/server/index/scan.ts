@@ -1,6 +1,13 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { type MediaExt, parseName, STATE_FILES, type ThumbExt } from "./parse-name.ts";
+import {
+	type MediaExt,
+	PROFILE_AVATAR,
+	PROFILE_CARD,
+	parseName,
+	STATE_FILES,
+	type ThumbExt,
+} from "./parse-name.ts";
 
 export interface FileStat {
 	name: string;
@@ -31,6 +38,9 @@ export interface ArchiveScan {
 	source: string | null;
 	/** ttdl holds a .lock for the duration of a run. */
 	locked: boolean;
+	/** ttdl's author card and picture, when `get` recorded them. */
+	card: FileStat | null;
+	avatar: FileStat | null;
 	/** Sorted `name\0size\0mtime` digest of the whole listing — the tier-1 cache key. */
 	listingHash: string;
 	/** Total bytes of media files (not sidecars). */
@@ -84,6 +94,8 @@ export function scanArchive(root: string, name: string): ArchiveScan {
 	const stateFiles = new Set<string>();
 	const listing: string[] = [];
 	let bytes = 0;
+	let card: FileStat | null = null;
+	let avatar: FileStat | null = null;
 
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		if (!entry.isFile()) {
@@ -94,6 +106,22 @@ export function scanArchive(root: string, name: string): ArchiveScan {
 			stateFiles.add(fileName);
 			continue;
 		}
+		if (fileName === PROFILE_CARD || fileName === PROFILE_AVATAR) {
+			const st = statOrNull(join(dir, fileName));
+			if (st) {
+				const stat = { name: fileName, size: st.size, mtimeMs: st.mtimeMs };
+				// Into the listing hash as well: a replaced picture keeps its name, so without the
+				// mtime a rescan would go on serving the old one from a cached index.
+				listing.push(`${fileName}\0${st.size}\0${Math.floor(st.mtimeMs)}`);
+				if (fileName === PROFILE_CARD) {
+					card = stat;
+				} else {
+					avatar = stat;
+				}
+			}
+			continue;
+		}
+
 		const parsed = parseName(fileName);
 		if (!parsed) {
 			continue;
@@ -207,6 +235,8 @@ export function scanArchive(root: string, name: string): ArchiveScan {
 		stateFiles,
 		source,
 		locked: stateFiles.has(".lock"),
+		card,
+		avatar,
 		listingHash: fnv1a(listing),
 		bytes,
 	};
