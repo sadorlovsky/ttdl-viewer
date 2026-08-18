@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { avatarSeed } from "../../shared/avatar.ts";
 import type { Archive, ArchiveCounts, AuthorSummary, Post } from "../../shared/types.ts";
@@ -6,7 +6,13 @@ import { buildPost, UNKNOWN_HANDLE } from "./build.ts";
 import { readInfo } from "./info.ts";
 import type { LikesIndex } from "./likes.ts";
 import { readCard } from "./profile.ts";
-import { type ArchiveScan, listArchiveDirs, readExpected, scanArchive } from "./scan.ts";
+import {
+	type ArchiveScan,
+	archiveStamp,
+	listArchiveDirs,
+	readExpected,
+	scanArchive,
+} from "./scan.ts";
 
 export interface IndexedArchive {
 	archive: Archive;
@@ -14,6 +20,8 @@ export interface IndexedArchive {
 	/** Newest first — the default order for every screen. */
 	posts: Post[];
 	postsById: Map<string, Post>;
+	/** The cheap probe as it read when this index was built — see `archiveStamp`. */
+	stamp: string;
 }
 
 /** Count the lines of one of ttdl's state files, so the UI can show ttdl's own view of the gap. */
@@ -141,8 +149,20 @@ function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArc
 		scan,
 		posts,
 		postsById: new Map(posts.map((p) => [p.id, p])),
+		// Taken after the scan, never before: a file that landed while we were reading would
+		// otherwise be covered by a stamp that predates it and stay invisible until the next change.
+		stamp: archiveStamp(root, name),
 	};
 }
+
+/**
+ * How long an archive under an active download may go on serving a stale index.
+ *
+ * A run moves its directory with every file it writes, so without a bound the viewer would reindex
+ * on every request and spend more time scanning than answering. An idle archive has no such
+ * problem and is checked each time.
+ */
+const LOCKED_REVALIDATE_MS = 30_000;
 
 /**
  * The in-memory index.
@@ -155,6 +175,8 @@ function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArc
 export class Registry {
 	private archives = new Map<string, IndexedArchive>();
 	private builtAt: number | null = null;
+	/** When each archive was last reindexed, to bound how often a running download triggers one. */
+	private reindexedAt = new Map<string, number>();
 
 	constructor(
 		private readonly root: string,
@@ -176,25 +198,81 @@ export class Registry {
 			}
 		}
 		this.archives = next;
+		this.reindexedAt = new Map([...next.keys()].map((name) => [name, Date.now()]));
 		this.builtAt = Math.floor(Date.now() / 1000);
 	}
 
-	rescan(archiveId: string): IndexedArchive | null {
-		const existing = this.get(archiveId);
-		if (!existing) {
-			return null;
-		}
+	/** Rebuild one archive's index in place. Null when its directory cannot be read at all. */
+	private reindex(name: string): IndexedArchive | null {
+		this.reindexedAt.set(name, Date.now());
 		try {
-			const indexed = indexArchive(this.root, existing.archive.name, this.likes);
-			this.archives.set(existing.archive.name, indexed);
+			const indexed = indexArchive(this.root, name, this.likes);
+			this.archives.set(name, indexed);
 			return indexed;
 		} catch (error) {
-			// Same reasoning as rebuild: the directory can be gone, renamed, or unreadable by the
-			// time a rescan asks for it. Guarding each stat covered a vanished file; the directory
-			// itself failing has to answer with a refusal, not a 500.
-			console.error(`failed to rescan ${existing.archive.name}:`, error);
+			// The directory can be gone, renamed, or unreadable by the time this runs. Guarding
+			// each stat covered a vanished file; the directory itself failing has to answer with a
+			// refusal, not a 500.
+			console.error(`failed to rescan ${name}:`, error);
 			return null;
 		}
+	}
+
+	/**
+	 * Reindex an archive whose files moved since it was indexed.
+	 *
+	 * This is what keeps the viewer current without a filesystem watcher: ttdl writes, and the next
+	 * request notices. The probe is a handful of stats — 0.02 ms against a reindex's 780 — so an
+	 * idle archive pays essentially nothing to be checked on every request.
+	 */
+	private revalidate(indexed: IndexedArchive): IndexedArchive {
+		const name = indexed.archive.name;
+		if (archiveStamp(this.root, name) === indexed.stamp) {
+			return indexed;
+		}
+		// Something moved. A run rewrites its directory continuously, so an archive being written
+		// to right now is held to an interval rather than reindexed per request — but only while
+		// the lock is still there, because the run ending is itself the change most worth seeing.
+		if (existsSync(join(this.root, name, ".lock"))) {
+			if (Date.now() - (this.reindexedAt.get(name) ?? 0) < LOCKED_REVALIDATE_MS) {
+				return indexed;
+			}
+		}
+		return this.reindex(name) ?? indexed;
+	}
+
+	/**
+	 * Pick up archives that appeared or vanished since the last look.
+	 *
+	 * A first download creates its directory while the server is already running, and nothing else
+	 * here would ever look for it — the index is built from one listing at startup.
+	 */
+	private sync(): void {
+		let names: Set<string>;
+		try {
+			names = new Set(listArchiveDirs(this.root));
+		} catch (error) {
+			// The root being unreadable for a moment is no reason to forget what is already
+			// indexed; serving a stale list beats serving an empty one.
+			console.error(`failed to list ${this.root}:`, error);
+			return;
+		}
+		for (const name of names) {
+			if (!this.archives.has(name)) {
+				this.reindex(name);
+			}
+		}
+		for (const name of [...this.archives.keys()]) {
+			if (!names.has(name)) {
+				this.archives.delete(name);
+				this.reindexedAt.delete(name);
+			}
+		}
+	}
+
+	rescan(archiveId: string): IndexedArchive | null {
+		const existing = this.peek(archiveId);
+		return existing ? this.reindex(existing.archive.name) : null;
 	}
 
 	/**
@@ -208,6 +286,22 @@ export class Registry {
 	 * the id verbatim, and a malformed escape is a miss rather than a thrown URIError.
 	 */
 	get(archiveId: string): IndexedArchive | undefined {
+		const existing = this.peek(archiveId);
+		if (existing) {
+			return this.revalidate(existing);
+		}
+		// A miss is not necessarily a 404: the archive may have been created after startup.
+		this.sync();
+		return this.peek(archiveId);
+	}
+
+	/**
+	 * The indexed archive exactly as it stands, without checking the disk.
+	 *
+	 * `rescan` uses this to read the index it is about to replace — going through `get` would
+	 * revalidate first and then report that its own rescan changed nothing.
+	 */
+	peek(archiveId: string): IndexedArchive | undefined {
 		const direct = this.archives.get(archiveId);
 		if (direct) {
 			return direct;
@@ -220,6 +314,11 @@ export class Registry {
 	}
 
 	list(): IndexedArchive[] {
+		this.sync();
+		// Over a copy: revalidating replaces entries in the map being walked.
+		for (const indexed of [...this.archives.values()]) {
+			this.revalidate(indexed);
+		}
 		return [...this.archives.values()].sort(
 			(a, b) => b.archive.counts.posts - a.archive.counts.posts,
 		);

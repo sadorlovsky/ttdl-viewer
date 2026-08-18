@@ -60,7 +60,8 @@ export function apiRoutes(
 		"/api/archives/:archiveId/rescan": {
 			POST: (request) => {
 				const started = performance.now();
-				const before = archiveOf(registry, request);
+				// peek, not get: revalidating here would fold the change into the "before" side.
+				const before = registry.peek(request.params.archiveId as string);
 				if (!before) {
 					return needArchive(request);
 				}
