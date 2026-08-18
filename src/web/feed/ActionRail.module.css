@@ -10,6 +10,16 @@
 	opacity: 0.88;
 	color: #fff;
 	filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.5));
+	/*
+	 * A readout does not take pointers.
+	 *
+	 * This column is some four hundred pixels tall and, but for one button, none of it does
+	 * anything. Left opaque it was a dead strip down the side of every post: taps landing on a
+	 * count, on the avatar, or in the gaps between them reached the rail and stopped there, so
+	 * play/pause and press-and-hold simply did not happen in that band. Everything here is
+	 * transparent to the slide beneath, and the one control opts back in.
+	 */
+	pointer-events: none;
 }
 
 .avatarSlot {
@@ -40,7 +50,8 @@
 	letter-spacing: 0.01em;
 }
 
-/* The one genuinely interactive item, because it is purely local. */
+/* The one genuinely interactive item, because it is purely local — and so the one thing in the
+   column that takes pointers back off the slide beneath. */
 .copy {
 	display: flex;
 	flex-direction: column;
@@ -48,6 +59,7 @@
 	gap: 4px;
 	color: inherit;
 	opacity: 0.9;
+	pointer-events: auto;
 	transition: opacity var(--dur-fast) var(--ease);
 }
 

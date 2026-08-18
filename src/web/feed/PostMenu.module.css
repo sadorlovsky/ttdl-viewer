@@ -1,0 +1,221 @@
+.layer {
+	position: absolute;
+	inset: 0;
+	z-index: var(--z-modal);
+	/*
+	 * The sheet arrives under a finger that is still down from the press that asked for it, and a
+	 * finger resting on text is how a browser starts a selection. Nothing in a menu is worth
+	 * selecting, so nothing here is selectable.
+	 */
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+}
+
+.backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgb(0 0 0 / 0.5);
+	opacity: 0;
+	transition: opacity var(--dur) var(--ease);
+}
+
+.backdrop[data-open] {
+	opacity: 1;
+}
+
+/*
+ * Positioned against the layer rather than laid out by it.
+ *
+ * Flex with `justify-content: flex-end` gave the same resting place but reached it by resolving a
+ * max-height against content that was still settling, and the sheet visibly resized on the way in.
+ * Pinned to the bottom edge, its height is whatever its rows come to, capped, and never a step.
+ */
+.sheet {
+	position: absolute;
+	inset: auto 0 0;
+	display: grid;
+	gap: 8px;
+	/* Full width on a phone, a centred column on a desktop window — where a full-width sheet puts
+	   the labels a screen away from the pointer that asked for them. */
+	width: min(440px, 100%);
+	margin-inline: auto;
+	max-height: min(82dvh, 640px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
+	border-radius: 16px 16px 0 0;
+	background: rgb(20 20 20 / 0.96);
+	backdrop-filter: blur(20px);
+	/* The drag reads this back and writes to it, so it is a plain translate and nothing else. */
+	transform: translateY(100%);
+	transition: transform 220ms var(--ease);
+	will-change: transform;
+	/* Vertical drags are handled here; handing them to the browser as well would scroll the sheet
+	   and move it at the same time. */
+	touch-action: pan-y;
+}
+
+.sheet[data-open] {
+	transform: translateY(0);
+}
+
+.sheet:focus {
+	outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sheet {
+		transition-duration: 1ms;
+	}
+}
+
+/* The handle. It is draggable — the whole sheet is — but it is sized as a signal rather than as a
+   target, because aiming for it is never necessary. */
+.grip {
+	justify-self: center;
+	width: 36px;
+	height: 4px;
+	margin: 2px 0 6px;
+	border-radius: var(--radius-pill);
+	background: var(--line-strong);
+}
+
+.group {
+	display: grid;
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+	overflow: hidden;
+}
+
+.group + .group {
+	margin-top: 4px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	width: 100%;
+	min-height: 50px;
+	padding: 9px 16px;
+	text-align: left;
+	/* No double-tap zoom to wait for: every row is a single tap. */
+	touch-action: manipulation;
+	transition: background var(--dur-fast) var(--ease);
+}
+
+.row + .row {
+	box-shadow: inset 0 1px 0 var(--line);
+}
+
+.row:hover:not([data-static]) {
+	background: var(--surface-2);
+}
+
+.row:active:not([data-static]) {
+	background: var(--surface-3);
+}
+
+.row[data-static] {
+	cursor: default;
+}
+
+.icon {
+	flex: none;
+	color: var(--text);
+}
+
+.label {
+	flex: 1;
+	font-size: 15px;
+}
+
+/* A quiet second line's worth of information on one line: what a row will do, or why it may not
+   have much to show. Never the label itself. */
+.note {
+	flex: none;
+	color: var(--text-4);
+	font-size: 12px;
+}
+
+.speeds {
+	display: flex;
+	flex: none;
+	gap: 2px;
+	padding: 2px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-3);
+}
+
+.speed {
+	padding: 5px 10px;
+	border-radius: var(--radius-pill);
+	color: var(--text-3);
+	font-size: 12.5px;
+	font-variant-numeric: tabular-nums;
+	touch-action: manipulation;
+	transition:
+		background var(--dur-fast) var(--ease),
+		color var(--dur-fast) var(--ease);
+}
+
+.speed:hover {
+	color: var(--text);
+}
+
+.speed[data-on] {
+	background: var(--text);
+	color: #000;
+	font-weight: 600;
+}
+
+.switch {
+	position: relative;
+	flex: none;
+	width: 44px;
+	height: 26px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-3);
+	transition: background var(--dur) var(--ease);
+}
+
+.switch::after {
+	content: "";
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--text-3);
+	transition:
+		transform var(--dur) var(--ease),
+		background var(--dur) var(--ease);
+}
+
+.switch[data-on] {
+	background: var(--accent);
+}
+
+.switch[data-on]::after {
+	background: #fff;
+	transform: translateX(18px);
+}
+
+.cancel {
+	margin-top: 4px;
+	padding: 14px;
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+	color: var(--text-2);
+	font-size: 15px;
+	font-weight: 600;
+	touch-action: manipulation;
+	transition: background var(--dur-fast) var(--ease);
+}
+
+.cancel:hover {
+	background: var(--surface-2);
+	color: var(--text);
+}

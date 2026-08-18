@@ -5,7 +5,29 @@
 	overflow: hidden;
 	background: #000;
 	display: grid;
+	/*
+	 * One track, and a definite one.
+	 *
+	 * An implicit `auto` row takes its size from its contents and only then stretches into any room
+	 * left over — so a portrait video in a landscape window sized the row to the video, and the
+	 * `max-height: 100%` meant to hold it back resolved against that same row. The cap measured
+	 * itself and let anything through: the post was drawn 960px tall inside a 778px slide and the
+	 * rest was simply cut off. `minmax(0, 1fr)` is exactly the slide, whatever is put in it.
+	 */
+	grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 	place-items: center;
+	cursor: pointer;
+	/*
+	 * The feed still scrolls; nothing else is the browser's.
+	 *
+	 * `pan-y` is doing two jobs. It withholds horizontal panning, which is what stops the browser
+	 * claiming a sideways drag on a slideshow and cancelling our pointer to scroll instead — the
+	 * whole reason a swipe between images was being read as a swipe between posts. And it is not
+	 * `auto` or `manipulation`, which is the only way to tell a browser not to wait and see whether
+	 * a tap is about to become a double-tap zoom; on a surface whose whole job is single taps that
+	 * wait is pure latency.
+	 */
+	touch-action: pan-y;
 }
 
 /*
@@ -23,11 +45,17 @@
 	pointer-events: none;
 }
 
+/*
+ * The box is the slide; `object-fit` decides what of it the picture uses.
+ *
+ * Sizing the element from the file's own dimensions is what invited the overflow, and it also made
+ * the frame jump: before metadata arrives the element takes the poster's size, and a post with
+ * neither has no size at all. Filling the slide and letting `contain` letterbox inside it needs no
+ * intrinsic size, cannot exceed the screen in either direction, and never resizes mid-post.
+ */
 .media {
 	position: relative;
-	max-width: 100%;
-	max-height: 100%;
-	width: auto;
+	width: 100%;
 	height: 100%;
 	object-fit: contain;
 	cursor: pointer;
@@ -41,6 +69,13 @@
 	color: rgb(255 255 255 / 0.85);
 	filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.5));
 	animation: fade var(--dur) var(--ease);
+	/* It covers the slide, so as a live target it would swallow every gesture aimed at the post
+	   behind it. Pointers go through; focus and the keyboard still reach it. */
+	pointer-events: none;
+}
+
+.playBadge:focus-visible {
+	pointer-events: auto;
 }
 
 @keyframes fade {
@@ -49,19 +84,26 @@
 	}
 }
 
-/* Long-press: everything but the frame gets out of the way. */
-.holding {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-}
-
 /* ------------------------------------------------------------------------------- carousel bits */
 
+/*
+ * The pictures obey the frame, rather than the frame chasing the pictures.
+ *
+ * A slideshow's dimensions are not knowable: its `media` is the audio track, so there is nothing
+ * to read a shape off, and the images inside one post need not even agree with each other. Left to
+ * fill the slide they spread across the whole window while the controls hugged a portrait frame —
+ * the picture outside its own interface. Held to the frame instead, `object-fit` letterboxes
+ * whatever the image turns out to be inside the box everything else is placed against, and the two
+ * cannot disagree.
+ */
 .stack {
-	position: relative;
-	width: 100%;
-	height: 100%;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	aspect-ratio: var(--stage, 9 / 16);
+	max-width: 100%;
 	cursor: pointer;
 }
 
@@ -110,17 +152,98 @@
 	}
 }
 
-.segments {
+/*
+ * What a press near the leading edge is doing.
+ *
+ * Centred over the picture rather than tucked into a corner: the gesture has no control to point
+ * at and no label anywhere else, so the only thing that explains a post suddenly running fast is
+ * this, and it has to be seen without being looked for.
+ */
+.boost {
 	position: absolute;
-	inset: 10px 12px auto;
-	z-index: var(--z-rail);
-	display: flex;
-	gap: 3px;
+	top: 76px;
+	left: 50%;
+	z-index: var(--z-overlay);
+	padding: 6px 14px;
+	border-radius: var(--radius-pill);
+	background: rgb(0 0 0 / 0.55);
+	color: #fff;
+	font-size: 13px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	backdrop-filter: blur(6px);
+	pointer-events: none;
+	transform: translateX(-50%);
+	animation: fade var(--dur) var(--ease);
 }
 
+/*
+ * The picture's own box, inside the slide.
+ *
+ * A carousel draws two things the feed cannot draw for it: the segment bar carries live progress
+ * and the counter is read off the same clock, so lifting either into the shared overlay layer
+ * would mean re-rendering the whole feed on every frame. They stay here — but placed against the
+ * same frame that layer uses, or they would span the window while every other control hugged the
+ * picture, which is precisely what a photo post looked like on a desktop screen.
+ */
+.frame {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	aspect-ratio: var(--stage, 9 / 16);
+	max-width: 100%;
+	z-index: var(--z-rail);
+	pointer-events: none;
+}
+
+.segments {
+	position: absolute;
+	/* Pulled up by the difference between the bar and the target it now sits inside, so the bar
+	   stays where it has always been drawn. */
+	inset: 3px 12px auto;
+	display: flex;
+	gap: 3px;
+	transition: opacity var(--dur) var(--ease);
+}
+
+/*
+ * Overlays that a hold or a cleared display takes away.
+ *
+ * Faded rather than unmounted: the segment bar carries live progress and the counter is read off
+ * the same clock, so unmounting them would restart the fill on every open of the sheet. What is
+ * being changed is visibility, so visibility is what changes.
+ */
+.segments[data-hidden],
+.counter[data-hidden] {
+	opacity: 0;
+	pointer-events: none;
+}
+
+/*
+ * The button is the target; the bar inside it is the picture.
+ *
+ * They were the same element, 2.5px tall, which is how thick the bar should look and hopeless as
+ * something to aim at — and a miss now lands on the slide behind it, which pauses the post. The
+ * hit area cannot simply be grown, because the bar clips its own fill and would clip the extra
+ * with it, so the two jobs are split. Only the height grows: spreading sideways would have each
+ * segment overlap its neighbours, and seeking to the wrong image is worse than missing.
+ */
 .segment {
-	position: relative;
 	flex: 1;
+	display: flex;
+	align-items: center;
+	height: 16px;
+	/* The frame is inert so it cannot shadow the picture; these are the only things in it that
+	   are meant to be pressed. */
+	pointer-events: auto;
+	touch-action: manipulation;
+}
+
+.segmentTrack {
+	position: relative;
+	width: 100%;
 	height: 2.5px;
 	border-radius: 2px;
 	background: rgb(255 255 255 / 0.28);
@@ -130,6 +253,9 @@
 /* Images the archive never got. Hatching says "absent", not "empty". */
 .segment[data-missing] {
 	cursor: default;
+}
+
+.segment[data-missing] .segmentTrack {
 	background: repeating-linear-gradient(135deg, rgb(255 180 0 / 0.5) 0 3px, transparent 3px 6px);
 }
 
@@ -146,7 +272,6 @@
 	position: absolute;
 	top: 88px;
 	right: 16px;
-	z-index: var(--z-rail);
 	padding: 2px 8px;
 	border-radius: var(--radius-pill);
 	background: rgb(0 0 0 / 0.45);
@@ -154,6 +279,7 @@
 	font-size: 11.5px;
 	font-variant-numeric: tabular-nums;
 	backdrop-filter: blur(4px);
+	transition: opacity var(--dur) var(--ease);
 }
 
 .counterWarn {

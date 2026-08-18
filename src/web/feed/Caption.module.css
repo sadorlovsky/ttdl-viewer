@@ -10,10 +10,6 @@
 	pointer-events: none;
 }
 
-.caption > * {
-	pointer-events: auto;
-}
-
 .handle {
 	display: flex;
 	align-items: baseline;
@@ -38,6 +34,15 @@
 	letter-spacing: 0.03em;
 }
 
+/*
+ * The one line here that takes a pointer.
+ *
+ * The caption sits over the lower-left of every post, and the slide behind it is what handles
+ * play/pause and press-and-hold now — so a line that accepts a pointer without doing anything
+ * with it is a patch of the post that has stopped responding. The handle, the track and the
+ * no-metadata warning are read, not used, and they let the gesture through. This one stays live:
+ * the hashtags in it are buttons, and it is the only part worth selecting and copying.
+ */
 .text {
 	margin-top: 5px;
 	font-size: 14px;
@@ -46,6 +51,7 @@
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	overflow: hidden;
+	pointer-events: auto;
 }
 
 .text[data-expanded] {

@@ -142,6 +142,98 @@ export const InfoIcon = ({ size = 18, className }: IconProps) => (
 	</svg>
 );
 
+export const SpeedIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="M3.8 17.5a9 9 0 1 1 16.4 0"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+		/>
+		<path d="M12 12.5 16.5 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+		<circle cx="12" cy="13.5" r="1.4" fill="currentColor" />
+	</svg>
+);
+
+/** Clear display: an eye, struck through. The full outline, because a half-drawn one reads as a
+ *  bow tie at this size rather than as anything to do with looking. */
+export const EyeOffIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="M3 12s3.6-6 9-6 9 6 9 6-3.6 6-9 6-9-6-9-6Z"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinejoin="round"
+		/>
+		<circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+		<path d="M4 20 20 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+	</svg>
+);
+
+/**
+ * Auto scroll: the feed carrying on downwards by itself.
+ *
+ * Two chevrons and no baseline, deliberately. An arrow that lands on a line is the universal
+ * download glyph, and this menu is a near-copy of one whose first row is exactly that — the two
+ * must not be confusable at a glance.
+ */
+export const AutoScrollIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="m6 6 6 5 6-5m-12 7 6 5 6-5"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const PipIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<rect x="3.5" y="5.5" width="17" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
+		<rect x="11.5" y="11" width="7" height="6" rx="1" fill="currentColor" />
+	</svg>
+);
+
+export const FullscreenIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="M9 4.5H4.5V9M15 4.5h4.5V9M9 19.5H4.5V15M15 19.5h4.5V15"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+/** Leaving fullscreen: the same corners, pointing inwards. */
+export const FullscreenExitIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="M4.5 9H9V4.5M19.5 9H15V4.5M4.5 15H9v4.5M19.5 15H15v4.5"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+/** The debug readout: angle brackets, since what it shows is a machine's own view. */
+export const CodeIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="m8.5 8.5-4 3.5 4 3.5m7-7 4 3.5-4 3.5M13.5 5.5l-3 13"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
 export const WarnIcon = ({ size = 16, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<path

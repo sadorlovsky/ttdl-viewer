@@ -11,6 +11,13 @@ interface PlayerState {
 	 */
 	mutedByPolicy: boolean;
 	volume: number;
+	/**
+	 * Playback rate, shared by every slide.
+	 *
+	 * Per-post would be the wrong grain: the rate is a way of watching, not a property of a post,
+	 * and having it snap back to 1× on every swipe is precisely what makes the control useless.
+	 */
+	rate: number;
 	/** Autoplay policy only lets us unmute after a real gesture; until then, do not offer it. */
 	hasInteracted: boolean;
 	autoAdvance: boolean;
@@ -27,9 +34,13 @@ interface PlayerState {
 	 */
 	restoreSound: () => void;
 	setVolume: (volume: number) => void;
+	setRate: (rate: number) => void;
 	markInteracted: () => void;
 	setAutoAdvance: (on: boolean) => void;
 }
+
+/** The rates the menu offers, and the only ones anything else should assume. */
+export const RATES = [0.5, 1, 1.5, 2] as const;
 
 /**
  * Player preferences, shared by every mounted slide.
@@ -46,6 +57,7 @@ export const usePlayer = create<PlayerState>()(
 			muted: true,
 			mutedByPolicy: false,
 			volume: 1,
+			rate: 1,
 			hasInteracted: false,
 			autoAdvance: false,
 			// Turning the sound on by hand is a gesture, which is the very thing the policy wanted —
@@ -60,6 +72,9 @@ export const usePlayer = create<PlayerState>()(
 			restoreSound: () =>
 				set((state) => (state.mutedByPolicy ? { muted: false, mutedByPolicy: false } : {})),
 			setVolume: (volume) => set({ volume: Math.min(1, Math.max(0, volume)) }),
+			// Clamped rather than trusted: this is persisted, so a hand-edited or stale value from
+			// an older build would otherwise reach playbackRate, which throws outside its range.
+			setRate: (rate) => set({ rate: Math.min(4, Math.max(0.25, rate)) }),
 			markInteracted: () => set({ hasInteracted: true }),
 			setAutoAdvance: (autoAdvance) => set({ autoAdvance }),
 		}),
@@ -68,6 +83,7 @@ export const usePlayer = create<PlayerState>()(
 			partialize: (state) => ({
 				muted: state.muted,
 				volume: state.volume,
+				rate: state.rate,
 				autoAdvance: state.autoAdvance,
 			}),
 		},

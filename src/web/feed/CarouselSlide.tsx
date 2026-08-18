@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Post } from "../../shared/types.ts";
 import { usePlayer } from "../store/player.ts";
+import { BOOST_ZONE, boostedRate } from "./boost.ts";
+import { bankLap, type Lap, rebase } from "./clock.ts";
 import styles from "./Slide.module.css";
+import { useLongPress } from "./useLongPress.ts";
 
 interface CarouselSlideProps {
 	post: Post;
@@ -20,6 +23,14 @@ interface CarouselSlideProps {
 	registerControls: (id: string, controls: CarouselControls | null) => void;
 	/** Same staged-buffering rule the video slides follow, so both media paths agree. */
 	mayBuffer: boolean;
+	/** Held for the long-press sheet; see the video slide, which reads it the same way. */
+	suspended: boolean;
+	onLongPress: () => void;
+	/** Clear display is on: no segments, no counter, and a tap brings the interface back. */
+	chromeHidden: boolean;
+	onRestoreChrome: () => void;
+	/** Auto scroll is on and the slideshow has been all the way round once. */
+	onEnded: () => void;
 }
 
 export interface CarouselControls {
@@ -57,10 +68,17 @@ export function CarouselSlide({
 	registerMedia,
 	registerControls,
 	mayBuffer,
+	suspended,
+	onLongPress,
+	chromeHidden,
+	onRestoreChrome,
+	onEnded,
 }: CarouselSlideProps) {
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const muted = usePlayer((state) => state.muted);
 	const volume = usePlayer((state) => state.volume);
+	const rate = usePlayer((state) => state.rate);
+	const autoAdvance = usePlayer((state) => state.autoAdvance);
 
 	const urls = post.photos?.urls ?? [];
 	const total = urls.length;
@@ -75,9 +93,72 @@ export function CarouselSlide({
 	/** Distinguishes "the viewer pressed pause" from "the browser stopped it on its own". */
 	const userPausedRef = useRef(false);
 
+	// Read inside the rAF loop rather than closed over, so a rate change does not tear the clock
+	// down and rebuild it mid-slideshow. Written in a layout effect below rather than during
+	// render, because the wall clock has to be re-anchored while this still holds the old rate.
+	const rateRef = useRef(rate);
+	const suspendedRef = useRef(suspended);
+	suspendedRef.current = suspended;
+	const activeRef = useRef(active);
+	activeRef.current = active;
+	const autoAdvanceRef = useRef(autoAdvance);
+	autoAdvanceRef.current = autoAdvance;
+	const onEndedRef = useRef(onEnded);
+	onEndedRef.current = onEnded;
+	/** Last position within the image cycle, so a wrap round to the start can be spotted. */
+	const previous = useRef(0);
+
+	/** Held fast by a press near the leading edge; also what puts the readout on screen. */
+	const [boosted, setBoosted] = useState(false);
+
+	// The toggle and the step are defined further down and close over the clock, so the handlers go
+	// through refs: the slide keeps one set of listeners rather than re-registering them as the
+	// images turn.
+	const tap = useRef<() => void>(() => undefined);
+	const swipe = useRef<(delta: number) => void>(() => undefined);
+	const press = useLongPress({
+		onLongPress: ({ x }) => {
+			const audio = audioRef.current;
+			// Only `playbackRate`, not the default — this lasts as long as the finger does. The
+			// images follow because the element is their clock.
+			if (x < BOOST_ZONE && audio) {
+				audio.playbackRate = boostedRate(rate);
+				rateRef.current = boostedRate(rate);
+				setBoosted(true);
+				return;
+			}
+			onLongPress();
+		},
+		onRelease: () => {
+			setBoosted(false);
+			rateRef.current = rate;
+			const audio = audioRef.current;
+			if (audio) {
+				audio.playbackRate = rate;
+			}
+		},
+		onTap: () => tap.current(),
+		// A carousel is the one thing here with somewhere sideways to go.
+		onSwipe: (direction) => swipe.current(direction),
+	});
+
 	const startFallback = useCallback((offset: number) => {
 		fallbackRef.current = { startedAt: performance.now(), offset };
 		setPaused(false);
+	}, []);
+
+	/** Laps of the audio already banked, so the images run on a clock that only goes forwards. */
+	const lapRef = useRef<Lap>({ banked: 0, last: 0 });
+
+	/** Where the clock stands right now, in track seconds, whichever clock is running. */
+	const elapsed = useCallback(() => {
+		const fallback = fallbackRef.current;
+		if (fallback) {
+			return userPausedRef.current
+				? fallback.offset
+				: fallback.offset + ((performance.now() - fallback.startedAt) / 1000) * rateRef.current;
+		}
+		return lapRef.current.banked + (audioRef.current?.currentTime ?? 0);
 	}, []);
 
 	useEffect(() => {
@@ -109,7 +190,30 @@ export function CarouselSlide({
 		// element, and `currentTime` is the clock the images run on — stopping it would freeze
 		// the slideshow whenever the user mutes.
 		audio.muted = muted;
-	}, [muted, volume]);
+		// The images are timed off this element, so the rate reaches the slideshow for free — and
+		// the default is set alongside it because the media element load algorithm resets
+		// `playbackRate` to `defaultPlaybackRate` every time a slide mounts. See the video slide.
+		audio.defaultPlaybackRate = rate;
+		audio.playbackRate = rate;
+	}, [muted, volume, rate]);
+
+	/**
+	 * Re-anchor the wall clock when the rate changes, then adopt the new rate.
+	 *
+	 * The fallback measures from a fixed instant, so without this a rate change would re-scale
+	 * every second already elapsed and the slideshow would jump — backwards, on a slow-down. The
+	 * order is the whole point: the seconds already run are banked at the rate they were run at,
+	 * and only then does `rateRef` move on. Layout rather than passive, so no frame can be drawn
+	 * with the new rate against the old anchor.
+	 *
+	 * The audio element needs none of this — `currentTime` is already in track seconds.
+	 */
+	useLayoutEffect(() => {
+		if (fallbackRef.current) {
+			fallbackRef.current = { startedAt: performance.now(), offset: elapsed() };
+		}
+		rateRef.current = rate;
+	}, [rate, elapsed]);
 
 	useEffect(() => {
 		const audio = audioRef.current;
@@ -118,21 +222,29 @@ export function CarouselSlide({
 		}
 		if (!active) {
 			audio.pause();
+			press.cancel();
 			if (distance > 1) {
 				audio.currentTime = 0;
 				fallbackRef.current = null;
+				// The laps belong to this visit; coming back to the post starts it over.
+				lapRef.current = { banked: 0, last: 0 };
+				previous.current = 0;
 				setIndex(0);
 				setProgress(0);
 			}
 			return;
 		}
 		userPausedRef.current = false;
+		// The sheet decides when this resumes; see the hold effect below.
+		if (suspendedRef.current) {
+			return;
+		}
 		void audio.play().catch(() => {
 			// Refused: fall back to a wall clock, or the images would sit on frame 1 forever and
 			// the post would look broken rather than silent.
-			startFallback(audio.currentTime);
+			startFallback(elapsed());
 		});
-	}, [active, distance, startFallback]);
+	}, [active, distance, startFallback, elapsed, press.cancel]);
 
 	// The clock. Driven by the audio element wherever possible, which means a stall, a seek, or a
 	// scrub drags the images along with it for free.
@@ -150,20 +262,27 @@ export function CarouselSlide({
 			// keep moving, so anything that leaves an active slide's audio stopped without the
 			// viewer asking for it hands the clock to the wall clock instead.
 			if (audio?.paused && !fallbackRef.current && !userPausedRef.current) {
-				startFallback(audio.currentTime);
+				startFallback(elapsed());
 			}
-			const fallback = fallbackRef.current;
-			let elapsed: number;
-			if (fallback) {
-				elapsed = userPausedRef.current
-					? fallback.offset
-					: fallback.offset + (performance.now() - fallback.startedAt) / 1000;
-			} else if (audio) {
-				elapsed = audio.currentTime;
-			} else {
-				elapsed = 0;
+			// Fold this reading into the running total before anything is derived from it; a
+			// looping track is otherwise a clock that keeps starting over. See `clock.ts`.
+			if (audio && !fallbackRef.current) {
+				lapRef.current = bankLap(lapRef.current, audio.currentTime, audio.duration);
 			}
-			const within = ((elapsed % cycle) + cycle) % cycle;
+			const within = ((elapsed() % cycle) + cycle) % cycle;
+			/*
+			 * A slideshow has no `ended` event to wait for: the audio loops on purpose, because it
+			 * is the clock. What "finished" means here is the images having been all the way round,
+			 * so it is read off the cycle wrapping.
+			 *
+			 * The half-cycle threshold is what separates a wrap from a seek. Tapping an earlier
+			 * segment also moves the clock backwards, and without it every such tap would count as
+			 * the post ending and scroll away from what was just asked for.
+			 */
+			if (within < previous.current - cycle / 2 && autoAdvanceRef.current) {
+				onEndedRef.current();
+			}
+			previous.current = within;
 			setIndex(Math.min(total - 1, Math.floor(within / perImage)));
 			setProgress((within % perImage) / perImage);
 			raf = requestAnimationFrame(tick);
@@ -171,7 +290,7 @@ export function CarouselSlide({
 
 		raf = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(raf);
-	}, [active, perImage, total, startFallback]);
+	}, [active, perImage, total, startFallback, elapsed]);
 
 	useEffect(() => {
 		onPausedChange(paused);
@@ -204,7 +323,12 @@ export function CarouselSlide({
 			if (fallbackRef.current) {
 				fallbackRef.current = { startedAt: performance.now(), offset: at };
 			} else if (audio) {
-				audio.currentTime = at % Math.max(audio.duration || perImage * total, 0.001);
+				// Re-based rather than left for the next tick to read as the track coming round: a
+				// seek backwards is not a lap, and counting it as one would put the images a whole
+				// track ahead of the sound the moment anyone touched a segment.
+				const { into, ...lap } = rebase(at, audio.duration || perImage * total);
+				lapRef.current = lap;
+				audio.currentTime = into;
 			}
 			setIndex(segment);
 			setProgress(0);
@@ -226,10 +350,8 @@ export function CarouselSlide({
 				userPausedRef.current = false;
 				setPaused(false);
 			} else {
-				fallbackRef.current = {
-					startedAt: performance.now(),
-					offset: fallback.offset + (performance.now() - fallback.startedAt) / 1000,
-				};
+				// Banked through the shared reader, so the rate is applied in one place only.
+				fallbackRef.current = { startedAt: performance.now(), offset: elapsed() };
 				userPausedRef.current = true;
 				setPaused(true);
 			}
@@ -240,12 +362,12 @@ export function CarouselSlide({
 		}
 		if (audio.paused) {
 			userPausedRef.current = false;
-			void audio.play().catch(() => startFallback(audio.currentTime));
+			void audio.play().catch(() => startFallback(elapsed()));
 		} else {
 			userPausedRef.current = true;
 			audio.pause();
 		}
-	}, [startFallback]);
+	}, [startFallback, elapsed]);
 
 	/** Move one image, wrapping. The clock follows, whichever clock is currently running. */
 	const step = useCallback(
@@ -262,6 +384,17 @@ export function CarouselSlide({
 	// registration instead of tearing the map entry down and rebuilding it during playback.
 	const latest = useRef<CarouselControls>({ toggle, step });
 	latest.current = { toggle, step };
+
+	tap.current = () => {
+		// With the interface cleared, the tap that brings it back is the whole gesture.
+		if (chromeHidden) {
+			onRestoreChrome();
+			return;
+		}
+		toggle();
+	};
+
+	swipe.current = (delta) => step(delta);
 	useEffect(() => {
 		const id = post.id;
 		registerControls(id, {
@@ -270,6 +403,38 @@ export function CarouselSlide({
 		});
 		return () => registerControls(id, null);
 	}, [registerControls, post.id]);
+
+	/**
+	 * Hold for the long-press sheet.
+	 *
+	 * Goes through `toggle` rather than pausing the element, because on the wall-clock fallback
+	 * there is no element to pause — and `userPausedRef` is what the tick reads to tell a stall it
+	 * should work around from a stop that was asked for. Two ways of stopping this thing would not
+	 * stay in agreement.
+	 *
+	 * `ours` is the reason this is not simply "pause on open, play on close": a post the viewer had
+	 * already paused must still be paused when the sheet goes away. Only a pause the sheet caused
+	 * is a pause the sheet may take back.
+	 */
+	const ours = useRef(false);
+	useEffect(() => {
+		if (suspended) {
+			if (!userPausedRef.current) {
+				ours.current = true;
+				latest.current.toggle();
+			}
+			return;
+		}
+		if (!ours.current) {
+			return;
+		}
+		ours.current = false;
+		// The feed may have moved on underneath the sheet; resuming then would run a slideshow
+		// nobody is looking at.
+		if (activeRef.current) {
+			latest.current.toggle();
+		}
+	}, [suspended]);
 
 	if (total === 0) {
 		return (
@@ -283,10 +448,14 @@ export function CarouselSlide({
 	}
 
 	return (
-		<div className={styles.slide}>
+		// Like the video slides, the gesture is on the slide rather than on the images, so the
+		// segments and the counter are inside the surface that listens rather than beside it. The
+		// keyboard drives a carousel through the controls it registers with the feed, which owns
+		// the key handling — so this needs no key handler of its own.
+		<div className={styles.slide} data-held={suspended || undefined} {...press.handlers}>
 			{post.cover && <img src={post.cover.url} alt="" className={styles.backdrop} aria-hidden />}
 
-			<div className={styles.stack} onClick={toggle}>
+			<div className={styles.stack}>
 				{urls.map((url, i) =>
 					loaded.includes(i) ? (
 						<img
@@ -298,48 +467,61 @@ export function CarouselSlide({
 							// A slide at opacity 0 still counts as in-viewport, so lazy loading here
 							// would fetch every image at once. Mounting is the control.
 							decoding="async"
-							style={{ animationDuration: `${perImage}s` }}
+							// Scaled with the rate, or the pan would still be crawling across a
+							// picture the clock had already left.
+							style={{ animationDuration: `${perImage / rate}s` }}
 							data-pan={i % 2 === 0 ? "in" : "out"}
 						/>
 					) : null,
 				)}
 			</div>
 
-			{/* Story-style segments rather than a scrubber: a carousel has discrete steps. */}
-			<div className={styles.segments}>
-				{Array.from({ length: expected ?? total }, (_, i) => {
-					const missing = i >= total;
-					return (
-						<button
-							// The image URL is the natural identity; segments past `total` are the
-							// ones ttdl never got, and their position is all they have.
-							key={urls[i] ?? `missing-${i}`}
-							className={styles.segment}
-							data-missing={missing || undefined}
-							onClick={(event) => {
-								event.stopPropagation();
-								if (!missing) {
-									seekToSegment(i);
-								}
-							}}
-							aria-label={missing ? `Image ${i + 1} was not downloaded` : `Go to image ${i + 1}`}
-						>
-							<span
-								className={styles.segmentFill}
-								style={{
-									transform: `scaleX(${i < index ? 1 : i === index ? progress : 0})`,
-								}}
-							/>
-						</button>
-					);
-				})}
-			</div>
+			{boosted && (
+				<div className={styles.boost} aria-hidden>
+					{boostedRate(rate)}× speed
+				</div>
+			)}
 
-			<div className={styles.counter}>
-				{index + 1}/{total}
-				{expected !== null && expected > total && (
-					<span className={styles.counterWarn}> · {expected - total} missing</span>
-				)}
+			{/* Placed against the picture rather than the window; see `.frame`. */}
+			<div className={styles.frame}>
+				{/* Story-style segments rather than a scrubber: a carousel has discrete steps. */}
+				<div className={styles.segments} data-hidden={suspended || chromeHidden || undefined}>
+					{Array.from({ length: expected ?? total }, (_, i) => {
+						const missing = i >= total;
+						return (
+							<button
+								// The image URL is the natural identity; segments past `total` are the
+								// ones ttdl never got, and their position is all they have.
+								key={urls[i] ?? `missing-${i}`}
+								className={styles.segment}
+								data-missing={missing || undefined}
+								onClick={(event) => {
+									event.stopPropagation();
+									if (!missing) {
+										seekToSegment(i);
+									}
+								}}
+								aria-label={missing ? `Image ${i + 1} was not downloaded` : `Go to image ${i + 1}`}
+							>
+								<span className={styles.segmentTrack}>
+									<span
+										className={styles.segmentFill}
+										style={{
+											transform: `scaleX(${i < index ? 1 : i === index ? progress : 0})`,
+										}}
+									/>
+								</span>
+							</button>
+						);
+					})}
+				</div>
+
+				<div className={styles.counter} data-hidden={suspended || chromeHidden || undefined}>
+					{index + 1}/{total}
+					{expected !== null && expected > total && (
+						<span className={styles.counterWarn}> · {expected - total} missing</span>
+					)}
+				</div>
 			</div>
 
 			{/* This is a music track pulled off a slideshow post; no caption track exists for it,

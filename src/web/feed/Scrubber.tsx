@@ -89,6 +89,9 @@ export function Scrubber({ mediaRef, active }: ScrubberProps) {
 	return (
 		<div
 			className={styles.hit}
+			// The slide listens for taps and holds across its whole area now, so anything with a
+			// gesture of its own has to say so; this one is not a button and would not be spotted.
+			data-interactive
 			data-dragging={dragging || undefined}
 			onPointerDown={(event) => {
 				event.stopPropagation();

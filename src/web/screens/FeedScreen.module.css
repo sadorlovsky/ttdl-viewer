@@ -18,6 +18,17 @@
 	scroll-snap-type: y mandatory;
 	overscroll-behavior-y: contain;
 	scrollbar-width: none;
+	/*
+	 * Press-and-hold on the media belongs to the sheet, and the browser has two competing answers
+	 * for it: a text selection that reaches across the slide on a desktop, and on iOS a callout
+	 * offering to save a file the archive is already made of. Both are refused here rather than on
+	 * the elements themselves, because the selection a drag produces starts on a slide and ends on
+	 * whatever is underneath it. The caption and the metadata drawer are outside this subtree and
+	 * stay selectable, which is the point — those are the parts worth copying.
+	 */
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
 }
 
 .feed::-webkit-scrollbar {
@@ -29,6 +40,77 @@
 	scroll-snap-align: start;
 	/* One post per fling, the way the app this imitates behaves. */
 	scroll-snap-stop: always;
+}
+
+/*
+ * Every overlay, as one thing that can be taken away — and as one box they are placed against.
+ *
+ * It paints nothing and lays nothing out; the overlays inside are still each absolutely
+ * positioned, only now against the post rather than against the window.
+ */
+.overlays {
+	position: absolute;
+	/*
+	 * The interface belongs to the post, not to the window.
+	 *
+	 * On a wide screen a portrait post is letterboxed, and overlays pinned to the viewport left the
+	 * caption stranded against the far edge with several hundred pixels of black between it and the
+	 * post it describes. This box is the post: full height, and `aspect-ratio` gives it exactly the
+	 * width `object-fit: contain` gave the picture — the same min(container, height × ratio) by a
+	 * different route, so the two cannot drift apart. `--stage` carries the active post's ratio.
+	 *
+	 * On a screen narrower than that the cap takes over, the box is the full width, and everything
+	 * sits where it always has. Nothing about a phone changes.
+	 */
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	aspect-ratio: var(--stage, 9 / 16);
+	max-width: 100%;
+	/*
+	 * Transparent by default, and nothing here hands that back wholesale.
+	 *
+	 * Every overlay inside already states its own answer — the chrome and the caption are inert
+	 * boxes whose children opt in, the scrim and the position counter never take a pointer, and
+	 * the rail is a readout with one button in it. A blanket `> *` rule here would have to outrank
+	 * all of those, and it cannot: they are single-class selectors in other stylesheets, so which
+	 * one wins is decided by the order the modules happen to be bundled in. That order follows the
+	 * import graph, and it already puts the rail first — the rule would have been quietly reversed
+	 * by an import moving. Leaving each overlay to speak for itself has no such dependency.
+	 */
+	pointer-events: none;
+	transition: opacity var(--dur) var(--ease);
+}
+
+.hint {
+	position: absolute;
+	left: 50%;
+	bottom: 12%;
+	z-index: var(--z-overlay);
+	padding: 7px 14px;
+	border-radius: var(--radius-pill);
+	background: rgb(0 0 0 / 0.55);
+	color: var(--text-2);
+	font-size: 12.5px;
+	backdrop-filter: blur(6px);
+	pointer-events: none;
+	transform: translateX(-50%);
+	/* Shown, held, then gone. The gesture it describes has to be learned exactly once. */
+	animation: hint 2.4s var(--ease) forwards;
+}
+
+@keyframes hint {
+	0% {
+		opacity: 0;
+	}
+	12%,
+	70% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
 }
 
 /* A scrim under the caption so a bright video does not swallow it. */
@@ -157,4 +239,21 @@
 	padding: 20px 16px;
 	color: var(--text-3);
 	font-size: 13px;
+}
+
+/*
+ * A hold or a cleared display takes the whole interface away.
+ *
+ * Last in the file on purpose. It has to outrank every "opt back in" rule above and in the
+ * overlays' own stylesheets, and the descendant selector is what reaches the parts that opted in
+ * from inside a nested element — the copy button in the rail, the hashtags in the caption. An
+ * overlay that is merely invisible but still takes taps is worse than one that is still there.
+ */
+.overlays[data-hidden] {
+	opacity: 0;
+}
+
+.overlays[data-hidden],
+.overlays[data-hidden] * {
+	pointer-events: none;
 }
