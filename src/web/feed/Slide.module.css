@@ -205,43 +205,6 @@
 }
 
 /*
- * Waiting for data, drawn where a scrubber would be.
- *
- * Deliberately the same 2.5px bar the carousel's segments use rather than a spinner in the middle
- * of the picture: the post is the thing being looked at, and an indeterminate bar at the edge says
- * "working" without covering the frame it is talking about.
- */
-.buffering {
-	position: absolute;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	height: 2.5px;
-	overflow: hidden;
-	background: rgb(255 255 255 / 0.12);
-	pointer-events: none;
-}
-
-.bufferingBar {
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	width: 30%;
-	border-radius: 2px;
-	background: var(--text-2);
-	animation: buffering 1.5s var(--ease) infinite;
-}
-
-@keyframes buffering {
-	from {
-		transform: translateX(-110%);
-	}
-	to {
-		transform: translateX(440%);
-	}
-}
-
-/*
  * Above the picture, not below it.
  *
  * The bottom band is spoken for three times over — caption left, rail right, scrubber across — so a
@@ -261,12 +224,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.bufferingBar {
-		/* Still moving, because a still bar reads as a stall rather than as work in progress —
-		   just without the travel. */
-		animation-duration: 3s;
-	}
-
 	.photo[data-on] {
 		animation: none;
 	}

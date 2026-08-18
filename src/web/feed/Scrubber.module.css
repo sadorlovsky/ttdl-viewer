@@ -42,6 +42,46 @@
 }
 
 /*
+ * A glint over the bar, not a second bar. It sweeps the whole width regardless of `progress`, so
+ * it reads the same over the played portion and the portion still to come — the fill is answering
+ * "where", this is answering "what is happening right now", and neither should have to compete for
+ * the bottom edge to say it.
+ */
+.shimmer {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.shimmer::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 40%;
+	background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+	animation: shimmer-sweep 1.5s var(--ease) infinite;
+}
+
+@keyframes shimmer-sweep {
+	from {
+		transform: translateX(-120%);
+	}
+	to {
+		transform: translateX(350%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shimmer::after {
+		/* Still moving, because a still bar reads as a stall rather than as work in progress —
+		   just slower. */
+		animation-duration: 3s;
+	}
+}
+
+/*
  * The knob is a sibling of the bar rather than a child, so the bar's vertical scale cannot squash
  * it. Both span the same width, so its percentage offset still lines up.
  */

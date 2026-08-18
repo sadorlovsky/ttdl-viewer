@@ -615,12 +615,6 @@ export function VideoSlide({
 			 * that was not there — and the design system names the rule that forbids it.
 			 */}
 			<div className={styles.frame}>
-				{buffering && !failure && active && (
-					<div className={styles.buffering} aria-hidden>
-						<span className={styles.bufferingBar} />
-					</div>
-				)}
-
 				{slow && !failure && active && (
 					// Said once the bar has been moving long enough to stop answering on its own. The
 					// archive's own vocabulary: this is a file being read, not a stream being fetched.
@@ -630,7 +624,7 @@ export function VideoSlide({
 				)}
 
 				{active && !suspended && !chromeHidden && !failure && (
-					<Scrubber mediaRef={videoRef} active={active} />
+					<Scrubber mediaRef={videoRef} active={active} buffering={buffering} />
 				)}
 			</div>
 		</div>

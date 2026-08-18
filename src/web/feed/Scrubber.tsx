@@ -5,6 +5,9 @@ import styles from "./Scrubber.module.css";
 interface ScrubberProps {
 	mediaRef: RefObject<HTMLMediaElement | null>;
 	active: boolean;
+	/** Out of data and waiting for more. Shown as a shimmer over the bar it would otherwise sit
+	    beside, rather than as a second bar with its own opinion about where the bottom edge is. */
+	buffering?: boolean;
 }
 
 /**
@@ -18,7 +21,7 @@ interface ScrubberProps {
  *  - Dragging uses pointer capture. Mouse events lose the pointer the moment it leaves the 3px
  *    bar, which is exactly what happens when you drag along a video.
  */
-export function Scrubber({ mediaRef, active }: ScrubberProps) {
+export function Scrubber({ mediaRef, active, buffering }: ScrubberProps) {
 	const barRef = useRef<HTMLDivElement>(null);
 	const [progress, setProgress] = useState(0);
 	const [time, setTime] = useState(0);
@@ -117,6 +120,7 @@ export function Scrubber({ mediaRef, active }: ScrubberProps) {
 		>
 			<div className={styles.bar} ref={barRef}>
 				<div className={styles.fill} style={{ transform: `scaleX(${progress})` }} />
+				{buffering && <div className={styles.shimmer} aria-hidden />}
 			</div>
 			<div className={styles.knob} style={{ left: `${progress * 100}%` }} />
 			{dragging && (
