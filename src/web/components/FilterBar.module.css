@@ -75,7 +75,6 @@
 }
 
 .count {
-	margin-left: auto;
 	color: var(--text-4);
 	font-size: 12.5px;
 	font-variant-numeric: tabular-nums;
