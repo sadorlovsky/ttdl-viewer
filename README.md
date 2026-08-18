@@ -277,8 +277,12 @@ what it refuses to wave through.
   memory. Fine at a few thousand posts; an FTS index is the answer if that stops being true.
   Fuzzy matching is applied only to the author and hashtag pickers, where the candidate list is
   small and handles are genuinely hard to remember.
-- **Liked/favorited dates are not wired up.** The export parser and the `sort=liked` ordering are
-  designed but not implemented, so `--likes` currently does nothing.
+- **Liked/favorited dates need the TikTok data export.** Nothing on disk carries them: ttdl names
+  files after the publication date and stamps the same date on them, while TikTok's own UI orders
+  saved posts by when you saved them. `--likes <dir>` reads `Like List.txt` and `Favorite
+  Videos.txt` from an export and fills each post's `liked`, which `sort=liked` orders by. Without
+  it every post has `liked: null` and that sort puts them all last. A post sitting in both lists
+  keeps its like date, since that is the list it primarily belongs to.
 - **No authentication.** Anything that can reach the port can read every archive. Keep it on
   loopback, a VPN, or a trusted LAN.
 - **The Docker and Synology instructions above have not been run.** They are written from the

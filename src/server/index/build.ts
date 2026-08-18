@@ -2,6 +2,7 @@ import { avatarSeed } from "../../shared/avatar.ts";
 import type { AuthorSummary, DateSource, Post } from "../../shared/types.ts";
 import { classify } from "./complete.ts";
 import type { NormalizedInfo } from "./info.ts";
+import type { LikesIndex } from "./likes.ts";
 import { displayTitle, idToUnix } from "./parse-name.ts";
 import type { FileGroup } from "./scan.ts";
 
@@ -45,6 +46,8 @@ export interface BuildContext {
 	/** Used as the author when the archive is a single-account one and metadata is missing. */
 	fallbackHandle: string;
 	expected: number | null;
+	/** Saving dates from the TikTok export. Empty unless --likes was given. */
+	likes?: LikesIndex;
 }
 
 /**
@@ -128,6 +131,6 @@ export function buildPost(
 
 		hasInfo: info !== null,
 		webpageUrl: info?.webpageUrl ?? null,
-		liked: null,
+		liked: ctx.likes?.get(group.postId) ?? null,
 	};
 }

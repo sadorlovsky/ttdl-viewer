@@ -4,6 +4,7 @@ import { avatarSeed } from "../../shared/avatar.ts";
 import type { Archive, ArchiveCounts, AuthorSummary, Post } from "../../shared/types.ts";
 import { buildPost, UNKNOWN_HANDLE } from "./build.ts";
 import { readInfo } from "./info.ts";
+import type { LikesIndex } from "./likes.ts";
 import { type ArchiveScan, listArchiveDirs, readExpected, scanArchive } from "./scan.ts";
 
 export interface IndexedArchive {
@@ -50,7 +51,7 @@ function collectAuthors(posts: Post[]): AuthorSummary[] {
 	);
 }
 
-function indexArchive(root: string, name: string): IndexedArchive {
+function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArchive {
 	const scan = scanArchive(root, name);
 	const archiveId = encodeURIComponent(name);
 	// A list archive's directory name says nothing about authorship (ttdl downloads those posts
@@ -69,7 +70,7 @@ function indexArchive(root: string, name: string): IndexedArchive {
 		}
 		const info = readInfo(scan.dir, group.info?.name);
 		const expected = readExpected(scan.dir, group.photoState);
-		const post = buildPost(group, info, { archiveId, fallbackHandle, expected });
+		const post = buildPost(group, info, { archiveId, fallbackHandle, expected, likes });
 		if (!post) {
 			ghosts++;
 			continue;
@@ -134,13 +135,18 @@ export class Registry {
 	private archives = new Map<string, IndexedArchive>();
 	private builtAt: number | null = null;
 
-	constructor(private readonly root: string) {}
+	constructor(
+		private readonly root: string,
+		/** Post id → when it was saved. Empty when no export was given; every post then has
+		 *  `liked: null` and sorting by it puts them all last. */
+		private readonly likes: LikesIndex = new Map(),
+	) {}
 
 	rebuild(): void {
 		const next = new Map<string, IndexedArchive>();
 		for (const name of listArchiveDirs(this.root)) {
 			try {
-				const indexed = indexArchive(this.root, name);
+				const indexed = indexArchive(this.root, name, this.likes);
 				next.set(indexed.archive.name, indexed);
 			} catch (error) {
 				// One unreadable directory must not take down the whole app; a folder that fails
@@ -158,7 +164,7 @@ export class Registry {
 			return null;
 		}
 		try {
-			const indexed = indexArchive(this.root, existing.archive.name);
+			const indexed = indexArchive(this.root, existing.archive.name, this.likes);
 			this.archives.set(existing.archive.name, indexed);
 			return indexed;
 		} catch (error) {

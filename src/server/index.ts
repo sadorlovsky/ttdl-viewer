@@ -1,5 +1,6 @@
 import { join, resolve } from "node:path";
 import { type Config, loadConfig } from "./config.ts";
+import { readLikes } from "./index/likes.ts";
 import { Registry } from "./index/registry.ts";
 import { apiRoutes, fail } from "./routes/api.ts";
 import { mediaRoutes } from "./routes/media.ts";
@@ -12,7 +13,8 @@ try {
 	process.exit(2);
 }
 
-const registry = new Registry(config.root);
+const likes = readLikes(config.likesDir);
+const registry = new Registry(config.root, likes);
 const started = performance.now();
 registry.rebuild();
 const stats = registry.stats();
@@ -94,6 +96,11 @@ console.log(
 	`        index  ${stats.archives} archives, ${stats.posts} posts, ` +
 		`${(stats.bytes / 1e9).toFixed(2)} GB in ${tookMs} ms`,
 );
+if (config.likesDir) {
+	console.log(`        likes  ${likes.size} saved dates from ${config.likesDir}`);
+} else if (stats.archives > 0) {
+	console.log("        likes  none — pass --likes <export dir> to sort by when you saved a post");
+}
 if (stats.archives === 0) {
 	console.log("\nNo archives found. Download one with ttdl, or run `bun run fixtures`.");
 }
