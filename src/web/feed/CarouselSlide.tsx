@@ -170,15 +170,20 @@ export function CarouselSlide({
 	// collected, and on iOS the supply is small enough that a few swipes exhaust it.
 	useLayoutEffect(() => {
 		const audio = audioRef.current;
+		if (!audio) {
+			return;
+		}
+		// Assigned here rather than as a prop for the same reason the video slide does it: React
+		// does not know this effect's cleanup cleared the attribute, so under StrictMode's double
+		// invoke the element came back without a source and the slideshow had no clock to run on.
+		audio.src = post.media.url;
+		audio.load();
 		return () => {
-			if (!audio) {
-				return;
-			}
 			audio.pause();
 			audio.removeAttribute("src");
 			audio.load();
 		};
-	}, []);
+	}, [post.media.url]);
 
 	useEffect(() => {
 		const audio = audioRef.current;
@@ -536,7 +541,7 @@ export function CarouselSlide({
 			{/* biome-ignore lint/a11y/useMediaCaption: see above */}
 			<audio
 				ref={audioRef}
-				src={post.media.url}
+				// `src` is set by the effect above, not here.
 				loop
 				preload={mayBuffer ? "auto" : "metadata"}
 				onPlay={() => setPaused(false)}

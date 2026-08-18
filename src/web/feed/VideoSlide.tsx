@@ -224,10 +224,25 @@ export function VideoSlide({
 	 */
 	useLayoutEffect(() => {
 		const video = videoRef.current;
+		if (!video) {
+			return;
+		}
+		/*
+		 * The source is assigned here rather than written as a `src` prop, so that the two halves
+		 * of this effect are symmetrical.
+		 *
+		 * As a prop, React owns the attribute and does not know the cleanup below removed it — and
+		 * StrictMode runs every effect twice, cleanup and all. The teardown therefore ran against a
+		 * perfectly good element and the remount put no source back, so in development every slide
+		 * was an empty `<video>`: no data, no poster past the first, no playback at all. Production
+		 * escaped it only because StrictMode's double-invoke is a development behaviour, which is
+		 * the worst possible shape for a bug — the feed was broken in exactly the place it is
+		 * worked on and nowhere else.
+		 */
+		video.src = post.media.url;
+		// Runs the resource selection algorithm, which is what actually starts the fetch.
+		video.load();
 		return () => {
-			if (!video) {
-				return;
-			}
 			video.pause();
 			video.removeAttribute("src");
 			// Required: without a load() the element keeps the old resource despite the empty src.
@@ -236,7 +251,7 @@ export function VideoSlide({
 		// Layout, not passive: a passive cleanup is deferred, and swiping mounts elements faster
 		// than React gets round to running them — so the resources pile up exactly when the feed
 		// is under the most pressure, which is the moment they had to be back.
-	}, []);
+	}, [post.media.url]);
 
 	useEffect(() => {
 		const video = videoRef.current;
@@ -500,7 +515,7 @@ export function VideoSlide({
 			<video
 				ref={videoRef}
 				className={styles.media}
-				src={post.media.url}
+				// `src` is set by the effect above, not here.
 				poster={post.cover?.url}
 				// Auto scroll needs an `ended` event, and a looping element never fires one.
 				loop={!autoAdvance}
