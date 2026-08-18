@@ -68,27 +68,39 @@ export function Caption({ post, onHashtag }: CaptionProps) {
 			</p>
 
 			{text && (
-				<p className={styles.text} data-expanded={expanded || undefined}>
-					{splitHashtags(text).map((part) =>
-						part.tag ? (
-							<button
-								// Hashtags stay interactive because filtering is entirely local.
-								key={part.at}
-								className={styles.tag}
-								onClick={() => onHashtag(part.tag as string)}
-							>
-								{part.text}
-							</button>
-						) : (
-							<span key={part.at}>{part.text}</span>
-						),
-					)}
+				<>
+					<p className={styles.text} data-expanded={expanded || undefined}>
+						{splitHashtags(text).map((part) =>
+							part.tag ? (
+								<button
+									// Hashtags stay interactive because filtering is entirely local.
+									key={part.at}
+									className={styles.tag}
+									onClick={() => onHashtag(part.tag as string)}
+								>
+									{part.text}
+								</button>
+							) : (
+								<span key={part.at}>{part.text}</span>
+							),
+						)}
+					</p>
+					{/*
+					 * A sibling of the clamped paragraph, not a child of it.
+					 *
+					 * Nested inside `.text`, this button lived or died by luck: `-webkit-line-clamp`
+					 * only paints trailing inline content that still fits on the visible line, and a
+					 * caption whose own words already reach the box edge — which is most captions
+					 * long enough to need this at all — left no room for it. The button rendered,
+					 * and was clipped away with everything past it, so the archive's longer captions
+					 * had no way back to their own text.
+					 */}
 					{!expanded && text.length > 90 && (
 						<button className={styles.more} onClick={() => setExpanded(true)}>
 							more
 						</button>
 					)}
-				</p>
+				</>
 			)}
 
 			{trackLine && (
