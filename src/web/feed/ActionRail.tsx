@@ -1,79 +1,15 @@
-import { useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { serializeQuery } from "../../shared/filters.ts";
 import type { Post } from "../../shared/types.ts";
 import { Avatar } from "../components/Avatar.tsx";
 import { BookmarkIcon, CommentIcon, HeartIcon, ShareIcon } from "../components/Icons.tsx";
+import { PressButton } from "../components/PressButton.tsx";
 import { count } from "../lib/format.ts";
 import styles from "./ActionRail.module.css";
 
 interface ActionRailProps {
 	post: Post;
 	paused: boolean;
-}
-
-/** How far a finger may wander and still have meant to press this, rather than to swipe the feed. */
-const PRESS_SLOP = 10;
-
-/**
- * Press handling for the two live controls in the column.
- *
- * `click` is not used, for the reason the slide's own gesture code gives: in a snap-scrolling feed
- * the browser withholds it after a `pointercancel`, and after a press it fires against the nearest
- * common ancestor of where the finger went down and came up — so a control here fired sometimes and
- * not others, which reads as a broken button rather than as a missed gesture.
- *
- * Doing the work on `pointerup` also fixes opening the post: a `window.open` from a timer is not
- * inside a user gesture and browsers refuse it as a popup. Measuring how long the press lasted and
- * acting when the finger lifts keeps the whole thing inside the gesture that asked for it.
- */
-function usePress(onTap: () => void) {
-	/**
-	 * The press in flight, held in a ref rather than a closure.
-	 *
-	 * A closure looked equivalent and was not: it is rebuilt on every render, so a render landing
-	 * between the finger going down and coming up handed `pointerup` a fresh, empty one and the
-	 * press was dropped on the floor. The feed re-renders constantly — the scrubber alone does it
-	 * per frame — which is why the avatar worked intermittently and the link, whose own label
-	 * changes on use, never worked at all.
-	 */
-	const at = useRef<{ x: number; y: number } | null>(null);
-	// Read through a ref for the same reason the slide's gesture code does: the handlers stay
-	// stable, so the button keeps one set of listeners instead of swapping them mid-press.
-	const latest = useRef(onTap);
-	latest.current = onTap;
-
-	return useMemo(
-		() => ({
-			onPointerDown: (event: React.PointerEvent) => {
-				// The slide beneath is listening too; this press belongs to the control.
-				event.stopPropagation();
-				at.current = { x: event.clientX, y: event.clientY };
-			},
-			onPointerUp: (event: React.PointerEvent) => {
-				const start = at.current;
-				at.current = null;
-				if (!start) {
-					return;
-				}
-				event.stopPropagation();
-				if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > PRESS_SLOP) {
-					return;
-				}
-				latest.current();
-			},
-			onPointerCancel: () => {
-				at.current = null;
-			},
-			// Enter and Space arrive as a click with no pointer behind it; that is the only click used.
-			onClick: (event: React.MouseEvent) => {
-				if (event.detail === 0) {
-					latest.current();
-				}
-			},
-		}),
-		[],
-	);
 }
 
 /**
@@ -112,18 +48,21 @@ export function ActionRail({ post, paused }: ActionRailProps) {
 	// The one identity in the column, and the one thing in it that names something the archive can
 	// still show you: everything this author left in it. An author with no metadata has an empty
 	// handle, which the query model carries as a hyphen — so that chip works here too.
-	const authorPress = usePress(() =>
-		navigate(`/a/${post.archiveId}?${serializeQuery({ author: [post.author.handle] })}`),
-	);
 	const authorLabel = post.author.handle
 		? `Show everything by @${post.author.handle} in this archive`
 		: "Show everything with no author in this archive";
 
 	return (
 		<div className={styles.rail}>
-			<button type="button" className={styles.avatarSlot} aria-label={authorLabel} {...authorPress}>
+			<PressButton
+				className={styles.avatarSlot}
+				aria-label={authorLabel}
+				onPress={() =>
+					navigate(`/a/${post.archiveId}?${serializeQuery({ author: [post.author.handle] })}`)
+				}
+			>
 				<Avatar seed={post.author.avatar} src={post.author.avatarUrl} size={46} />
-			</button>
+			</PressButton>
 
 			{readouts.map((item) => (
 				<div

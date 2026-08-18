@@ -178,6 +178,26 @@ export function PostMenu({
 		return () => previous?.focus?.();
 	}, []);
 
+	/*
+	 * Whether a touch on the sheet's body belongs to the drag or to the scroller.
+	 *
+	 * `touch-action: pan-y` is honest only while there is something to pan: iOS claims any
+	 * vertical movement it is offered and answers our pointer stream with `pointercancel`, so on a
+	 * sheet whose rows all fit — which is this menu almost always — the drag lost the race nearly
+	 * every time and the sheet read as tap-outside-only. When nothing can scroll, hand the browser
+	 * nothing. When the rows genuinely overflow, the scroller keeps the body and the grab handle
+	 * remains the way to pull the sheet down.
+	 *
+	 * Measured once per open: the rows are decided by then, and the one label that changes while
+	 * the sheet is up ("Link copied") does not change its height.
+	 */
+	useEffect(() => {
+		const sheet = sheetRef.current;
+		if (sheet && sheet.scrollHeight <= sheet.clientHeight) {
+			sheet.style.touchAction = "none";
+		}
+	}, []);
+
 	/* ------------------------------------------------------------------------------ drag to close */
 
 	const drag = useRef<{
@@ -190,6 +210,8 @@ export function PostMenu({
 		lastAt: number;
 		speed: number;
 		live: boolean;
+		/** Went down on the grab handle, whose drags are never the scroller's to claim. */
+		grip: boolean;
 	} | null>(null);
 
 	const onDragStart = (event: ReactPointerEvent) => {
@@ -204,6 +226,7 @@ export function PostMenu({
 			lastAt: performance.now(),
 			speed: 0,
 			live: false,
+			grip: (event.target as HTMLElement | null)?.closest("[data-grip]") !== null,
 		};
 	};
 
@@ -220,7 +243,10 @@ export function PostMenu({
 			if (dy < DRAG_START) {
 				return;
 			}
-			if (sheet.scrollTop > 0) {
+			// A handle drag is exempt: `touch-action: none` on the grab zone means the scroller
+			// never had a claim on this gesture, so it dismisses from any scroll position — which
+			// is what the handle is for.
+			if (sheet.scrollTop > 0 && !state.grip) {
 				drag.current = null;
 				return;
 			}
@@ -327,7 +353,9 @@ export function PostMenu({
 				onPointerUp={onDragEnd}
 				onPointerCancel={onDragEnd}
 			>
-				<div className={styles.grip} aria-hidden />
+				<div className={styles.grab} data-grip aria-hidden>
+					<div className={styles.grip} />
+				</div>
 
 				<div className={styles.group}>
 					{post.webpageUrl && (

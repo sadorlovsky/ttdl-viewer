@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Post } from "../../shared/types.ts";
 import { MusicIcon, WarnIcon } from "../components/Icons.tsx";
+import { PressButton } from "../components/PressButton.tsx";
 import { date, splitHashtags } from "../lib/format.ts";
 import styles from "./Caption.module.css";
 
@@ -72,14 +73,14 @@ export function Caption({ post, onHashtag }: CaptionProps) {
 					<p className={styles.text} data-expanded={expanded || undefined}>
 						{splitHashtags(text).map((part) =>
 							part.tag ? (
-								<button
+								<PressButton
 									// Hashtags stay interactive because filtering is entirely local.
 									key={part.at}
 									className={styles.tag}
-									onClick={() => onHashtag(part.tag as string)}
+									onPress={() => onHashtag(part.tag as string)}
 								>
 									{part.text}
-								</button>
+								</PressButton>
 							) : (
 								<span key={part.at}>{part.text}</span>
 							),
@@ -96,9 +97,9 @@ export function Caption({ post, onHashtag }: CaptionProps) {
 					 * had no way back to their own text.
 					 */}
 					{!expanded && text.length > 90 && (
-						<button className={styles.more} onClick={() => setExpanded(true)}>
+						<PressButton className={styles.more} onPress={() => setExpanded(true)}>
 							more
-						</button>
+						</PressButton>
 					)}
 				</>
 			)}

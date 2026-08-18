@@ -19,6 +19,7 @@ import {
 	useRawInfo,
 } from "../api/client.ts";
 import { BackIcon, InfoIcon, MuteIcon, SoundIcon } from "../components/Icons.tsx";
+import { PressButton } from "../components/PressButton.tsx";
 import { ActionRail } from "../feed/ActionRail.tsx";
 import { Caption } from "../feed/Caption.tsx";
 import { CarouselSlide } from "../feed/CarouselSlide.tsx";
@@ -850,24 +851,24 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 				inert={menuOpen || chromeHidden}
 			>
 				<div className={styles.chrome} data-kind={activePost?.kind}>
-					<button className={styles.back} onClick={backToGrid} aria-label="Back to the grid">
+					<PressButton className={styles.back} onPress={backToGrid} aria-label="Back to the grid">
 						<BackIcon />
-					</button>
+					</PressButton>
 					<div className={styles.chromeRight}>
-						<button
+						<PressButton
 							className={styles.chromeButton}
 							// Marks the one place the feed's own "spend the gesture" handler must keep
 							// its hands off; see onFeedPointerDown.
 							data-sound
-							onClick={toggleSound}
+							onPress={toggleSound}
 							aria-label={muted ? "Unmute" : "Mute"}
 						>
 							{muted ? <MuteIcon /> : <SoundIcon />}
-						</button>
-						<button
+						</PressButton>
+						<PressButton
 							className={styles.chromeButton}
 							data-on={showInfo || undefined}
-							onClick={() => {
+							onPress={() => {
 								setShowInfo((was) => !was);
 								setShowKeys(false);
 							}}
@@ -876,7 +877,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 							aria-expanded={showInfo}
 						>
 							<InfoIcon />
-						</button>
+						</PressButton>
 					</div>
 				</div>
 
@@ -962,9 +963,9 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 				<aside className={styles.drawer} role="dialog" aria-labelledby="feed-keys-title">
 					<header className={styles.drawerHead}>
 						<h2 id="feed-keys-title">Shortcuts</h2>
-						<button ref={closePanelRef} onClick={() => setShowKeys(false)} aria-label="Close">
+						<PressButton ref={closePanelRef} onPress={() => setShowKeys(false)} aria-label="Close">
 							×
-						</button>
+						</PressButton>
 					</header>
 					<div className={styles.keys}>
 						<p className={styles.keysGroup}>Keys</p>
@@ -1032,9 +1033,9 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 				<aside className={styles.drawer} role="dialog" aria-labelledby="feed-drawer-title">
 					<header className={styles.drawerHead}>
 						<h2 id="feed-drawer-title">Raw metadata</h2>
-						<button ref={closePanelRef} onClick={() => setShowInfo(false)} aria-label="Close">
+						<PressButton ref={closePanelRef} onPress={() => setShowInfo(false)} aria-label="Close">
 							×
-						</button>
+						</PressButton>
 					</header>
 					{rawInfo.isError ? (
 						<div className={styles.drawerEmpty}>

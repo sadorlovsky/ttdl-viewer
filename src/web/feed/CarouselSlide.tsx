@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Post } from "../../shared/types.ts";
+import { PressButton } from "../components/PressButton.tsx";
 import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import { bankLap, type Lap, shiftFor } from "./clock.ts";
@@ -496,14 +497,13 @@ export function CarouselSlide({
 					{Array.from({ length: expected ?? total }, (_, i) => {
 						const missing = i >= total;
 						return (
-							<button
+							<PressButton
 								// The image URL is the natural identity; segments past `total` are the
 								// ones ttdl never got, and their position is all they have.
 								key={urls[i] ?? `missing-${i}`}
 								className={styles.segment}
 								data-missing={missing || undefined}
-								onClick={(event) => {
-									event.stopPropagation();
+								onPress={() => {
 									if (!missing) {
 										seekToSegment(i);
 									}
@@ -518,7 +518,7 @@ export function CarouselSlide({
 										}}
 									/>
 								</span>
-							</button>
+							</PressButton>
 						);
 					})}
 				</div>

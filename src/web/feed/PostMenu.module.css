@@ -51,8 +51,9 @@
 	transform: translateY(100%);
 	transition: transform 220ms var(--ease);
 	will-change: transform;
-	/* Vertical drags are handled here; handing them to the browser as well would scroll the sheet
-	   and move it at the same time. */
+	/* Only while the rows overflow — when they fit, an effect tightens this to `none` so the
+	   whole sheet drags; see PostMenu.tsx. Handing the browser a pan it can actually perform
+	   would scroll the sheet and move it at the same time. */
 	touch-action: pan-y;
 }
 
@@ -70,13 +71,28 @@
 	}
 }
 
-/* The handle. It is draggable — the whole sheet is — but it is sized as a signal rather than as a
-   target, because aiming for it is never necessary. */
+/*
+ * The grab zone behind the handle: the whole top band of the sheet, not the 4px pill.
+ *
+ * `touch-action: none` is what makes it the one place a drag can always start. Everywhere else
+ * the scroller may have a claim on a vertical gesture and iOS answers ours with `pointercancel`;
+ * a gesture that begins here is never the browser's to take, so the pull-down works however tall
+ * the menu is. The negative margins reach over the sheet's own padding so the band spans edge to
+ * edge, and the bottom one gives back what the padding added, leaving the rows where they were.
+ */
+.grab {
+	display: grid;
+	place-items: center;
+	margin: -8px -8px -8px;
+	padding: 12px 0;
+	touch-action: none;
+	cursor: grab;
+}
+
+/* The pill itself: sized as a signal, because the target is the band around it. */
 .grip {
-	justify-self: center;
 	width: 36px;
 	height: 4px;
-	margin: 2px 0 6px;
 	border-radius: var(--radius-pill);
 	background: var(--line-strong);
 }
