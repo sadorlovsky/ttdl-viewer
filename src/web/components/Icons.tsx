@@ -84,6 +84,19 @@ export const StackIcon = ({ size = 16, className }: IconProps) => (
 	</svg>
 );
 
+/** A plain down chevron, for the disclosure state of a custom-drawn `<select>`. */
+export const ChevronDownIcon = ({ size = 16, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="m6 9.5 6 6 6-6"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
 export const SearchIcon = ({ size = 18, className }: IconProps) => (
 	<svg {...base(size)} className={className}>
 		<circle cx="10.5" cy="10.5" r="6" stroke="currentColor" strokeWidth="1.8" />

@@ -49,6 +49,13 @@
 	opacity: 0.4;
 }
 
+.selectWrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+}
+
 .select,
 .more {
 	flex: none;
@@ -61,6 +68,20 @@
 	transition:
 		background var(--dur-fast) var(--ease),
 		border-color var(--dur-fast) var(--ease);
+}
+
+/* The native control drawn out from under the browser's own chrome — a raw OS arrow next to
+   hand-drawn icons everywhere else in the app would be the one un-authored shape on screen. */
+.select {
+	padding-right: 28px;
+	appearance: none;
+}
+
+.selectChevron {
+	position: absolute;
+	right: 10px;
+	color: var(--text-4);
+	pointer-events: none;
 }
 
 .select:hover,
@@ -195,6 +216,13 @@
 	outline: none;
 }
 
+/* Matches .input's ::-webkit-search-cancel-button treatment below: the browser's own icon,
+   recolored to sit in the same near-black-and-white palette as everything drawn by hand. */
+.dateInput::-webkit-calendar-picker-indicator {
+	filter: invert(1);
+	opacity: 0.5;
+}
+
 .dateSep {
 	color: var(--text-4);
 	font-size: 12px;
@@ -210,7 +238,7 @@
 	display: inline-flex;
 	align-items: baseline;
 	gap: 5px;
-	padding: 4px 10px;
+	padding: 6px 12px;
 	border: 1px solid var(--line);
 	border-radius: var(--radius-pill);
 	color: var(--text-2);
@@ -234,4 +262,17 @@
 	color: var(--text-4);
 	font-size: 11px;
 	font-variant-numeric: tabular-nums;
+}
+
+/*
+ * iOS Safari zooms the whole page on focus of any text field whose computed font-size is under
+ * 16px — not a bug in the field, a platform default. Bumped only under the app's one existing
+ * mobile breakpoint rather than everywhere, so the desktop type scale stays as designed.
+ */
+@media (max-width: 520px) {
+	.input,
+	.select,
+	.dateInput {
+		font-size: 16px;
+	}
 }

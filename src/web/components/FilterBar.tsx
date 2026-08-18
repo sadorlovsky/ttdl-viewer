@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Archive, PostQuery, PostSort } from "../../shared/types.ts";
 import { useHashtags, useStats } from "../api/client.ts";
 import styles from "./FilterBar.module.css";
-import { SearchIcon } from "./Icons.tsx";
+import { ChevronDownIcon, SearchIcon } from "./Icons.tsx";
 
 /**
  * The menu offers (key, direction) pairs, not sort keys.
@@ -213,26 +213,29 @@ export function FilterBar({ archiveId, archive, query, onQuery, total, loading }
 				/>
 			</label>
 
-			<select
-				className={styles.select}
-				value={current.id}
-				onChange={(event) => {
-					const chosen = SORTS.find((s) => s.id === event.target.value) ?? NEWEST;
-					onQuery({
-						...query,
-						sort: chosen.sort,
-						order: chosen.order,
-						// A fresh seed each time "Shuffle" is chosen, kept stable across reloads.
-						seed: chosen.sort === "random" ? String(Date.now() % 100000) : undefined,
-					});
-				}}
-			>
-				{options.map((option) => (
-					<option key={option.id} value={option.id}>
-						{option.label}
-					</option>
-				))}
-			</select>
+			<span className={styles.selectWrap}>
+				<select
+					className={styles.select}
+					value={current.id}
+					onChange={(event) => {
+						const chosen = SORTS.find((s) => s.id === event.target.value) ?? NEWEST;
+						onQuery({
+							...query,
+							sort: chosen.sort,
+							order: chosen.order,
+							// A fresh seed each time "Shuffle" is chosen, kept stable across reloads.
+							seed: chosen.sort === "random" ? String(Date.now() % 100000) : undefined,
+						});
+					}}
+				>
+					{options.map((option) => (
+						<option key={option.id} value={option.id}>
+							{option.label}
+						</option>
+					))}
+				</select>
+				<ChevronDownIcon size={14} className={styles.selectChevron} />
+			</span>
 
 			<button
 				className={styles.more}
