@@ -41,6 +41,19 @@ import styles from "./FeedScreen.module.css";
  */
 const WINDOW = 2;
 
+/**
+ * Whether unmuting a playing video needs the stop-and-restart described in `toggleSound`.
+ *
+ * True only where the platform's audio session works that way: iOS and iPadOS, where every
+ * browser is WebKit. Detected by user agent because nothing about the session is observable up
+ * front — the only "feature test" is unmuting and watching whether the element gets stopped,
+ * which is the very glitch being avoided. The `maxTouchPoints` clause is for iPadOS, which
+ * reports itself as a Mac.
+ */
+const NEEDS_SOUND_SWAP =
+	/iP(hone|ad|od)/.test(navigator.platform) ||
+	(navigator.userAgent.includes("Mac") && navigator.maxTouchPoints > 1);
+
 /** "Carousel, 5 images, 2 not downloaded" — the counter and the hatched segments, said out loud. */
 function photosLabel(post: Post): string {
 	const photos = post.photos;
@@ -363,7 +376,9 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 	 *
 	 * Stopping it first is what makes the `play()` real. The order is load-bearing: paused, then
 	 * unmuted, then started, with nothing awaited in between — a single `await` anywhere here ends
-	 * the gesture and hands back the same refusal.
+	 * the gesture and hands back the same refusal. Everywhere else — see NEEDS_SOUND_SWAP —
+	 * unmuting inside the gesture is the whole job, and the restart would only be a visible
+	 * hiccup on every unmute.
 	 *
 	 * The post has to have been playing. One the viewer paused should not start again just because
 	 * they reached for the speaker.
@@ -381,17 +396,20 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			media.muted = true;
 			return;
 		}
-		if (wasPlaying && media instanceof HTMLVideoElement) {
+		const swap = NEEDS_SOUND_SWAP && wasPlaying && media instanceof HTMLVideoElement;
+		if (swap) {
 			// The slide would read the pause below as the browser stopping the post on its own and
 			// race this with a resume of its own; the flag is consumed there. Carousels are left
 			// alone — their audio has none of this trouble, and a gap in the clock the images run
-			// on is a real cost to pay for a problem they do not have.
+			// on is a real cost to pay for a problem they do not have. Neither is any platform
+			// outside NEEDS_SOUND_SWAP: there unmuting inside the gesture is enough, and the
+			// restart is a visible stutter paid for nothing.
 			media.dataset.soundSwap = "1";
 			media.pause();
 		}
 		media.muted = false;
 		media.volume = usePlayer.getState().volume;
-		if (wasPlaying) {
+		if (swap) {
 			void media.play().catch(() => undefined);
 		}
 	}, [markInteracted, toggleMuted, currentMedia]);
