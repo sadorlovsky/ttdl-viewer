@@ -295,8 +295,16 @@ export function VideoSlide({
 		if (!video) {
 			return;
 		}
-		void video
-			.play()
+		const attempt = video.play();
+		/*
+		 * Read `paused` back synchronously: play() flips it before returning when the browser
+		 * accepts the call, and the `play` event that would tell React arrives a task later —
+		 * after the paint. That gap was the last of the badge flash: the slide committed as
+		 * active-and-paused, painted a badge, and took it back a frame or two on. A refused
+		 * call leaves the element paused, so this reads true there and the badge stands.
+		 */
+		setPaused(video.paused);
+		void attempt
 			.then(() => setRefused(null))
 			.catch((error: DOMException) => {
 				/*
@@ -339,7 +347,12 @@ export function VideoSlide({
 
 	// Play the active slide; rewind anything that has left the immediate neighbourhood, so coming
 	// back to a post starts it over rather than resuming halfway through.
-	useEffect(() => {
+	//
+	// Layout, not passive: a passive effect runs after the browser has painted the commit that
+	// made this slide active — a commit in which it is still paused and ready, which is exactly
+	// the badge's condition. Starting playback before that paint is what keeps a play badge from
+	// flashing on every slide the feed scrolls onto.
+	useLayoutEffect(() => {
 		const video = videoRef.current;
 		if (!video) {
 			return;
@@ -599,7 +612,9 @@ export function VideoSlide({
 			 * costs nothing that matters: the slide's own tap is what starts the post either way.
 			 * The element stays a button so it keeps its place in the tab order and its label.
 			 */}
-			{paused && !failure && (ready || refused) && !suspended && !failure && (
+			{/* Only the active slide: a preloaded neighbour is paused and ready by construction, so
+			    without this gate it slid into view wearing a badge for the instant before autoplay. */}
+			{active && paused && !failure && (ready || refused) && !suspended && (
 				<button className={styles.playBadge} onClick={toggle} aria-label="Play">
 					<PlayIcon size={34} />
 				</button>
