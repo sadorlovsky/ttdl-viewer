@@ -191,7 +191,8 @@ export function CarouselSlide({
 		if (!audio) {
 			return;
 		}
-		setLevel(audio, post, volume);
+		// As in the video slide: audibility belongs to the level, not to the element's flags.
+		setLevel(audio, post, volume, active && !muted);
 		// Keep the element playing even with the sound off. Autoplay policy allows a muted
 		// element, and `currentTime` is the clock the images run on — stopping it would freeze
 		// the slideshow whenever the user mutes.
@@ -201,7 +202,7 @@ export function CarouselSlide({
 		// `playbackRate` to `defaultPlaybackRate` every time a slide mounts. See the video slide.
 		audio.defaultPlaybackRate = rate;
 		audio.playbackRate = rate;
-	}, [muted, volume, rate, post]);
+	}, [muted, volume, rate, post, active]);
 
 	// The level above is applied to a graph when the browser needs one, and that record has to be
 	// dropped when the element goes: it is keyed on an element that is about to stop existing.

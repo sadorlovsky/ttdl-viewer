@@ -121,6 +121,15 @@ describe("the two ways a level is expressed", () => {
 		expect(nodeGain(6.0206, 1)).toBeCloseTo(2, 4);
 	});
 
+	test("a post that should not be heard is silent in the node, whatever its correction", () => {
+		// Not `element.muted`: the feed starts its neighbours deliberately, muted, to win them the
+		// right to play later, and a mute that does not reach the graph makes the whole window
+		// audible at once — which sums, and a sum clips.
+		expect(nodeGain(12, 1, false)).toBe(0);
+		expect(nodeGain(-6, 1, false)).toBe(0);
+		expect(nodeGain(0, 1, false)).toBe(0);
+	});
+
 	test("the viewer's volume stays the outer term either way", () => {
 		expect(elementVolume(-6.0206, 0.4)).toBeCloseTo(0.2, 4);
 		expect(nodeGain(6.0206, 0.5)).toBeCloseTo(1, 4);

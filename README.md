@@ -186,6 +186,21 @@ done under rules that keep it from costing anything:
   corrected, it is silent.
 - **The nodes are disconnected when the slide goes**, because a connected node is reachable from
   the context and would hold every `<video>` the feed had swiped past.
+- **Only the post being watched is audible, and it is the node that says so** rather than
+  `element.muted`. `muted` and `volume` are properties of a playing element, and a routed element
+  is not one — whether either still applies on the way into the graph is a question engines answer
+  differently. The feed meanwhile starts its neighbours deliberately, muted, to win them the right
+  to play later; a mute that does not reach the graph makes the whole ±2 window audible at once.
+- **One limiter sits between every element and the speakers.** The graph sums its sources into a
+  buffer that hard-clips at ±1, where before each element reached the platform mixer on its own.
+  Two posts an inch below the ceiling add up to well above it, which is audible as clipping on a
+  swipe — and was. With the gating above it should rarely engage; it stays for what gating cannot
+  cover, such as a file mastered above full scale in the first place, of which this archive holds
+  a few (true peaks up to +4.8 dBTP).
+
+The target itself belongs to ttdl, not here: `ttdl.py loudness @user --target -16` recomputes
+every gain from the stored measurements without running ffmpeg again, and the viewer picks the new
+numbers up on its next scan. A whole archive that plays too loud is that knob, not this one.
 
 **Amplification stops at +12 dB.** ttdl caps its gain by the true peak and deliberately goes no
 further: a maximum boost, it says, is the consumer's policy rather than an archive's. This is the

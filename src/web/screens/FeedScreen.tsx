@@ -399,6 +399,10 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 		const wasPlaying = !media.paused;
 		if (nowMuted) {
 			media.muted = true;
+			// And in the level too, in the same breath. A routed element's `muted` may never reach
+			// the graph, so on the browsers where it does not, this is the only thing that makes
+			// the speaker button do anything at all. See loudness.ts.
+			setLevel(media, activePost, usePlayer.getState().volume, false);
 			return;
 		}
 		const swap = NEEDS_SOUND_SWAP && wasPlaying && media instanceof HTMLVideoElement;
@@ -417,7 +421,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 		// and the moment between them is audible: the element would come back at full volume and
 		// only then be pulled down to the post's level, which on the loud posts is the flinch this
 		// correction exists to prevent.
-		setLevel(media, activePost, usePlayer.getState().volume);
+		setLevel(media, activePost, usePlayer.getState().volume, true);
 		if (swap) {
 			void media.play().catch(() => undefined);
 		}

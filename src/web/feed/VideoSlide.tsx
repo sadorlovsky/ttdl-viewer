@@ -260,7 +260,9 @@ export function VideoSlide({
 			return;
 		}
 		video.muted = muted;
-		setLevel(video, post, volume);
+		// Only the post being watched makes a sound, and it says so here rather than through
+		// `video.muted`: a routed element's flags may never reach the graph. See loudness.ts.
+		setLevel(video, post, volume, active && !muted);
 		/*
 		 * Both, and `defaultPlaybackRate` is the one that matters.
 		 *
@@ -276,7 +278,7 @@ export function VideoSlide({
 		 */
 		video.defaultPlaybackRate = rate;
 		video.playbackRate = rate;
-	}, [muted, volume, rate, post]);
+	}, [muted, volume, rate, post, active]);
 
 	// The level above is applied to a graph when the browser needs one, and that record has to be
 	// dropped when the element goes: it is keyed on an element that is about to stop existing.

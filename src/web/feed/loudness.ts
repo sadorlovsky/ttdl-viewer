@@ -79,9 +79,19 @@ export function elementVolume(correction: number, volume: number): number {
 	return volume * amplitude(Math.min(correction, 0));
 }
 
-/** What the gain node carries when there is one: the whole correction, and the viewer's volume. */
-export function nodeGain(correction: number, volume: number): number {
-	return volume * amplitude(correction);
+/**
+ * What the gain node carries when there is one: the whole correction, the viewer's volume, and
+ * whether this element should be heard at all.
+ *
+ * The last of those is not something the element can be trusted with. `muted` and `volume` are
+ * properties of a *playing element*, and a routed element is not one — its samples are taken
+ * into the graph, and whether the two flags still apply on the way in is a question every engine
+ * answers differently and iOS answers unhelpfully. The feed meanwhile starts its neighbours
+ * deliberately, muted, to win them the right to play later; if that mute does not reach the graph,
+ * the whole ±2 window is audible at once. Silence is therefore expressed where the level is.
+ */
+export function nodeGain(correction: number, volume: number, audible = true): number {
+	return audible ? volume * amplitude(correction) : 0;
 }
 
 /**
@@ -146,6 +156,36 @@ function honoursVolume(element: HTMLMediaElement): boolean {
 let ctx: AudioContext | null = null;
 
 /**
+ * One limiter, between every element and the speakers.
+ *
+ * Not a correction and not a substitute for one — every gain applied here is bounded by the true
+ * peak ttdl measured, so no single post can reach full scale. What can is *two* of them: the
+ * graph sums its sources into one buffer that hard-clips at ±1, where before each element went
+ * to the platform mixer on its own and the mixing happened somewhere with headroom. A feed
+ * crossing between two posts plays both for a moment, and two posts an inch below the ceiling
+ * add up to well above it — which is audible as clipping on the swipe, and was.
+ *
+ * The gains are gated per element as well, so this should rarely engage at all. It is here for
+ * the moments the gating cannot cover: a file mastered above full scale in the first place — this
+ * archive holds them, true peaks up to +4.8 dBTP — clips on decode, and something has to catch it.
+ */
+let limiter: DynamicsCompressorNode | null = null;
+
+function makeLimiter(live: AudioContext): DynamicsCompressorNode {
+	const node = live.createDynamicsCompressor();
+	// Just below full scale, with the hardest knee and ratio the node offers. It is a compressor
+	// rather than a true limiter — finite ratio, a detector that never sees an inter-sample peak —
+	// so it is asked to do nothing except stop a sum from wrapping, and asked as late as possible.
+	node.threshold.value = -1;
+	node.knee.value = 0;
+	node.ratio.value = 20;
+	node.attack.value = 0.003;
+	node.release.value = 0.1;
+	node.connect(live.destination);
+	return node;
+}
+
+/**
  * The nodes an element was given, if it was given any.
  *
  * Keyed on the element and never removed while it lives: a second `createMediaElementSource` for
@@ -166,7 +206,10 @@ const graphs = new WeakMap<
  * wait, a post on screen at that moment would never be corrected — its effect has already run
  * and has nothing to re-run for.
  */
-const levels = new Map<HTMLMediaElement, { correction: number; volume: number }>();
+const levels = new Map<
+	HTMLMediaElement,
+	{ correction: number; volume: number; audible: boolean }
+>();
 
 /**
  * Whether a correction needs the graph, or `volume` can carry it.
@@ -197,8 +240,9 @@ function connect(element: HTMLMediaElement): void {
 		// Set before anything is connected, not ramped to afterwards: a node that starts at unity
 		// puts the post through at full level for the length of the ramp, which on a post being
 		// pulled down is exactly the moment this exists to prevent.
-		gain.gain.value = nodeGain(level.correction, level.volume);
-		source.connect(gain).connect(live.destination);
+		gain.gain.value = nodeGain(level.correction, level.volume, level.audible);
+		limiter ??= makeLimiter(live);
+		source.connect(gain).connect(limiter);
 		graphs.set(element, { source, gain });
 	} catch {
 		// Already routed, or refused outright. The element still plays — through whatever it was
@@ -218,7 +262,7 @@ function render(element: HTMLMediaElement): void {
 		// same correction — that would be a post pulled down twice.
 		element.volume = 1;
 		nodes.gain.gain.setTargetAtTime(
-			nodeGain(level.correction, level.volume),
+			nodeGain(level.correction, level.volume, level.audible),
 			ctx.currentTime,
 			RAMP,
 		);
@@ -258,13 +302,21 @@ function flush(): void {
 /**
  * Play this post at the level ttdl measured, scaled by the volume the viewer chose.
  *
- * Called from the slide's own volume effect, so it runs again whenever either changes. The first
- * call for an element may only be able to do half the job — the graph does not exist until a
- * gesture creates it — and the rest arrives at `flush`.
+ * Called from the slide's own volume effect, so it runs again whenever any of them changes. The
+ * first call for an element may only be able to do half the job — the graph does not exist until
+ * a gesture creates it — and the rest arrives at `flush`.
+ *
+ * `audible` is the slide saying whether this post is the one being watched, unmuted. Only that
+ * one makes a sound; see `nodeGain` for why the element's own `muted` is not enough.
  */
-export function setLevel(element: HTMLMediaElement, post: Post, volume: number): void {
+export function setLevel(
+	element: HTMLMediaElement,
+	post: Post,
+	volume: number,
+	audible: boolean,
+): void {
 	const correction = correctionFor(post);
-	levels.set(element, { correction, volume });
+	levels.set(element, { correction, volume, audible });
 	if (graphAllowed() && needsGraph(correction, honoursVolume(element))) {
 		connect(element);
 	}
