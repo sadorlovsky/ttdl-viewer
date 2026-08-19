@@ -43,15 +43,89 @@ Every setting has a flag and an environment variable; the flag wins.
 
 | Flag | Environment | Default | What it does |
 |---|---|---|---|
-| `--root <dir>` | `TTDL_VIEWER_ROOT` | see below | Directory holding one subdirectory per archive |
+| `--root <dir>` | `TTDL_VIEWER_ROOT` | remembered | Directory holding one subdirectory per archive |
 | `--port <n>` | `TTDL_VIEWER_API_PORT` | `4174` | Port the server listens on |
 | `--host <addr>` | `TTDL_VIEWER_HOST` | `127.0.0.1` | Interface to bind |
-| `--likes <dir>` | `TTDL_VIEWER_LIKES` | none | TikTok data export, for liked/favorited dates |
+| `--lan` | — | off | Bind every interface — the same as `--host 0.0.0.0`, said as what it does |
+| `--likes <dir>` | `TTDL_VIEWER_LIKES` | found | A TikTok export kept away from the archives |
 
 `--host` defaults to loopback deliberately: this process serves arbitrary local media with no
-authentication in front of it, and should not land on the LAN by accident. Binding `0.0.0.0` is an
-explicit choice — the Docker image makes it, because inside a container loopback is reachable only
-from the container itself, and there the exposure is decided by which port you publish.
+authentication in front of it, and should not land on the LAN by accident. Reaching the network is
+an explicit choice — `--lan` is how you make it, and the Docker image makes it too, because inside
+a container loopback is reachable only from the container itself and the exposure is decided by
+which port you publish.
+
+`--likes` is an escape hatch, not part of running this. The saving dates are normally already in
+the archive: see below.
+
+### The root is remembered
+
+`--root` is the one thing this cannot work out on its own — nothing on the machine says which
+directory ttdl downloads into. So it is asked for once and kept:
+
+```bash
+bun run start --root ~/code/ttdl/downloads   # remembered for next time
+bun run start                                # and never needed again
+```
+
+It lands in `~/.config/ttdl-viewer/config.json` (or `$XDG_CONFIG_HOME`), which holds that one
+setting and nothing else. This is the only thing the program writes, and it writes it outside every
+archive — the promise is that nothing here can damage a download, not that the process never opens
+a file for writing. Only a root you actually named is kept; one that was found by looking is not,
+since freezing a guess into a setting is how a program ends up serving the wrong directory for
+months. Delete the file to forget it.
+
+Given no root and nothing remembered, these are tried in order: `./downloads`, `../ttdl/downloads`,
+`~/code/ttdl/downloads`, and `./fixtures/downloads` last — the synthetic archive `bun run fixtures`
+generates must never shadow real ones.
+
+## Liked and favorited dates
+
+TikTok orders your likes and favorites by when you *saved* a post, and that date exists nowhere on
+disk — ttdl names files after the publication date and stamps the same date on them. It exists only
+in the TikTok data export (Settings → Account → Download your data).
+
+**Normally there is nothing to do at all.** ttdl takes `--likes` itself, and caches what it finds as
+`.liked.json` inside the archive. That file is read first, because it needs no searching, it stays
+correct after the export folder is deleted, and it travels with the archive to storage and back:
+
+```bash
+ttdl.py get "TikTok Saved" --likes tiktok-export   # once, in ttdl
+bun run start                                      # the dates are simply there
+```
+
+Two orderings — **Recently saved** and **First saved** — then appear in the filter bar, and each
+post carries the date it was saved under its caption.
+
+Only archives built from a list get these dates, which is ttdl's rule and now this viewer's. A
+profile archive holds posts an account published, not posts anybody saved. Applying one export to
+every archive — which this used to do — puts a saving date on the handful of posts you happen to
+have liked from an account you also archive in full: seven posts out of 3,307 in one archive here,
+which is no ordering at all.
+
+**If ttdl was never given the export**, unpack it anywhere inside the archive root and the viewer
+reads it directly, for list archives that have no dates recorded:
+
+```
+downloads/
+  tiktok-export/          ← unpacked here, or with TikTok's own nesting, or loose in downloads/
+    Like List.txt
+    Favorite Videos.txt
+  TikTok Saved/
+```
+
+Startup then says so, and prints the one ttdl command that records the dates permanently. The text
+export is the format both tools read; if you downloaded the JSON one, ask ttdl for it — it owns the
+export, and this only ever reads what ttdl left behind.
+
+That search never opens an archive. ttdl leaves its own bookkeeping (`archive.txt`, `.all_ids.txt`)
+in every directory it creates, and a directory carrying any of it is an archive, decided by `stat`
+rather than by listing — the difference between 3 ms and 411 ms on the archives this was written
+against. A directory holding the export is therefore not an archive, and is kept out of the library
+instead of appearing there as a profile with zero posts.
+
+The export is a snapshot: posts saved after you requested it are not in it until you request a new
+one.
 
 ## Running it in Docker
 
@@ -320,12 +394,10 @@ what it refuses to wave through.
   memory. Fine at a few thousand posts; an FTS index is the answer if that stops being true.
   Fuzzy matching is applied only to the author and hashtag pickers, where the candidate list is
   small and handles are genuinely hard to remember.
-- **Liked/favorited dates need the TikTok data export.** Nothing on disk carries them: ttdl names
-  files after the publication date and stamps the same date on them, while TikTok's own UI orders
-  saved posts by when you saved them. `--likes <dir>` reads `Like List.txt` and `Favorite
-  Videos.txt` from an export and fills each post's `liked`, which `sort=liked` orders by. Without
-  it every post has `liked: null` and that sort puts them all last. A post sitting in both lists
-  keeps its like date, since that is the list it primarily belongs to.
+- **Liked/favorited dates come from ttdl, or from an export.** With neither, every post has
+  `liked: null` and `sort=liked` puts them all last. Profile archives have it by design. A post
+  sitting in both lists keeps its like date, since that is the list it primarily belongs to. The
+  export is also a snapshot — it stops at the day you requested it.
 - **No authentication.** Anything that can reach the port can read every archive. Keep it on
   loopback, a VPN, or a trusted LAN.
 - **The Docker and Synology instructions above have not been run.** They are written from the

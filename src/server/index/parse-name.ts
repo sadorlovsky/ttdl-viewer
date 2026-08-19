@@ -30,7 +30,7 @@ export const THUMB_EXTS = [".jpg", ".jpeg", ".webp", ".png"] as const;
 
 export const MEDIA_EXTS = [".mp4", ".m4a", ".mp3"] as const;
 
-/** ttdl STATE_FILES (ttdl.py:416), plus the files ttdl writes but does not upload. */
+/** ttdl STATE_FILES (ttdl.py:498), plus the files ttdl writes but does not upload. */
 export const STATE_FILES = new Set([
 	"archive.txt",
 	".all_ids.txt",
@@ -39,6 +39,11 @@ export const STATE_FILES = new Set([
 	"ttdl.log",
 	".source",
 	".lock",
+	// The saving dates ttdl cached from a data export. Recognised here so that it is a state file
+	// rather than an unparseable name the scan throws away — it is read, and a change to it has to
+	// invalidate the index like any other.
+	".liked.json",
+	".remote",
 ]);
 
 /**

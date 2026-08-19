@@ -15,7 +15,10 @@ services:
       # damage a download that took hours to fetch.
       - ${TTDL_ARCHIVES:-./downloads}:/archives:ro
 
-      # Optional: the TikTok data export, for "recently liked" ordering. Also read-only.
+      # Saving dates need no volume of their own: ttdl caches them as .liked.json inside the
+      # archive, which is already mounted below. An export unpacked inside the archive root is
+      # picked up too. Mount it separately only if you keep it somewhere else entirely, and then
+      # point TTDL_VIEWER_LIKES at it.
       # - ${TTDL_EXPORT:-./export}:/export:ro
 
     environment:

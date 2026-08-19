@@ -43,6 +43,96 @@ function built(): Registry {
 	return registry;
 }
 
+describe("when each post was saved", () => {
+	/** ttdl marks an archive built from a list with `.source`; a profile archive has none. */
+	function asList(where: string): void {
+		writeFileSync(join(where, ".source"), "downloads/ids.txt\n");
+	}
+
+	function record(where: string, id: string, at: number): void {
+		writeFileSync(join(where, ".liked.json"), JSON.stringify({ [id]: { at, kind: "like" } }));
+	}
+
+	test("comes from what ttdl recorded beside the archive", () => {
+		const id = postId(1);
+		addPost(dir, 1);
+		asList(dir);
+		record(dir, id, 1662317057);
+
+		const post = built().get("acc")?.posts[0];
+		expect(post?.liked).toEqual({ at: 1662317057, kind: "like" });
+	});
+
+	test("falls back to an export only where ttdl recorded nothing", () => {
+		const id = postId(1);
+		addPost(dir, 1);
+		asList(dir);
+
+		const fallback = new Map([[id, { at: 999, kind: "like" as const }]]);
+		const registry = new Registry(root, fallback);
+		registry.rebuild();
+		expect(registry.get("acc")?.posts[0]?.liked?.at).toBe(999);
+		expect(registry.get("acc")?.likedFrom).toBe("export");
+	});
+
+	test("what ttdl recorded wins over an export sitting in the root", () => {
+		const id = postId(1);
+		addPost(dir, 1);
+		asList(dir);
+		record(dir, id, 1662317057);
+
+		const registry = new Registry(root, new Map([[id, { at: 999, kind: "like" as const }]]));
+		registry.rebuild();
+		// The export is a snapshot someone downloaded by hand; ttdl's cache is the archive's own
+		// answer, and it is the one that stays true after the export folder is deleted.
+		expect(registry.get("acc")?.posts[0]?.liked?.at).toBe(1662317057);
+		expect(registry.get("acc")?.likedFrom).toBe("ttdl");
+	});
+
+	test("a profile archive gets none, even when the export knows the post", () => {
+		const id = postId(1);
+		addPost(dir, 1);
+		// No .source: these posts were published by the account, not saved by anybody. An export
+		// naming one of them means you once liked it, which is not a date this archive can order by
+		// — it would apply to a handful of posts and leave the rest null.
+		const registry = new Registry(root, new Map([[id, { at: 999, kind: "like" as const }]]));
+		registry.rebuild();
+		expect(registry.get("acc")?.posts[0]?.liked).toBeNull();
+		expect(registry.get("acc")?.likedFrom).toBeNull();
+	});
+
+	test("a run that records dates is picked up without a restart", () => {
+		const id = postId(1);
+		addPost(dir, 1);
+		asList(dir);
+		const registry = built();
+		expect(registry.get("acc")?.posts[0]?.liked).toBeNull();
+
+		Bun.sleepSync(2);
+		record(dir, id, 1662317057);
+
+		// .liked.json is in the change probe, so ttdl writing one has to invalidate the index —
+		// otherwise the dates appear only after the server is restarted.
+		expect(registry.get("acc")?.posts[0]?.liked?.at).toBe(1662317057);
+	});
+});
+
+describe("a directory that is not an archive", () => {
+	test("is kept out of the library, at startup and on every later look", () => {
+		addPost(dir, 1);
+		mkdirSync(join(root, "tiktok-export"));
+
+		const registry = new Registry(root, new Map(), new Set(["tiktok-export"]));
+		registry.rebuild();
+		expect(registry.list().map((a) => a.archive.name)).toEqual(["acc"]);
+
+		// sync() runs off its own listing, so a claimed name has to be honoured there too — or the
+		// export folder reappears as an empty archive the moment anything triggers a resync.
+		expect(registry.get("tiktok-export")).toBeUndefined();
+		expect(registry.list().map((a) => a.archive.name)).toEqual(["acc"]);
+	});
+});
+
 describe("an archive that changed on disk", () => {
 	test("is reindexed on the next look", () => {
 		addPost(dir, 1);

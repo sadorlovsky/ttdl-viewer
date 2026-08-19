@@ -273,6 +273,9 @@ const STAMP_FILES = [
 	"missing.txt",
 	".source",
 	".lock",
+	// Rewritten whole every time ttdl is handed an export, and the dates in it are on every post
+	// of a list archive — so a run that records them has to be noticed here.
+	".liked.json",
 	PROFILE_CARD,
 ];
 
@@ -301,9 +304,16 @@ export function archiveStamp(root: string, name: string): string {
 	return parts.join("|");
 }
 
-export function listArchiveDirs(root: string): string[] {
+/**
+ * Immediate subdirectories of the root, minus the ones that are not archives.
+ *
+ * `skip` carries whatever the export search claimed — a folder holding a TikTok data export is a
+ * subdirectory of the root like any other, and listing it here put an archive with zero posts in
+ * the library that nothing on screen could explain.
+ */
+export function listArchiveDirs(root: string, skip: ReadonlySet<string> = new Set()): string[] {
 	return readdirSync(root, { withFileTypes: true })
-		.filter((e) => e.isDirectory() && !e.name.startsWith("."))
+		.filter((e) => e.isDirectory() && !e.name.startsWith(".") && !skip.has(e.name))
 		.map((e) => e.name)
 		.sort();
 }

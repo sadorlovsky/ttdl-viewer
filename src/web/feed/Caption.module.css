@@ -37,6 +37,24 @@
 }
 
 /*
+ * Quieter than the handle line above it: this is a note about your own history with the post, not
+ * part of what the post is. It is read, never used, so it lets the gesture through like the rest.
+ */
+.saved {
+	margin-top: 2px;
+	color: var(--text-2);
+	/* The same 11.5px overlay metadata as the publication date it sits under, for the same reason. */
+	font-size: 11.5px;
+	font-weight: 400;
+}
+
+/* The one word that says which list this came from, carried by weight rather than by a colour the
+   caption does not otherwise use. */
+.savedKind {
+	font-weight: 500;
+}
+
+/*
  * The one line here that takes a pointer.
  *
  * The caption sits over the lower-left of every post, and the slide behind it is what handles

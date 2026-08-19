@@ -4,7 +4,7 @@ import { avatarSeed } from "../../shared/avatar.ts";
 import type { Archive, ArchiveCounts, AuthorSummary, Post } from "../../shared/types.ts";
 import { buildPost, UNKNOWN_HANDLE } from "./build.ts";
 import { readInfo } from "./info.ts";
-import type { LikesIndex } from "./likes.ts";
+import { type LikesIndex, readLikedState } from "./likes.ts";
 import { readCard } from "./profile.ts";
 import {
 	type ArchiveScan,
@@ -14,9 +14,13 @@ import {
 	scanArchive,
 } from "./scan.ts";
 
+/** Where an archive's saving dates came from — for the startup line, not for the API. */
+export type LikedFrom = "ttdl" | "export" | null;
+
 export interface IndexedArchive {
 	archive: Archive;
 	scan: ArchiveScan;
+	likedFrom: LikedFrom;
 	/** Newest first — the default order for every screen. */
 	posts: Post[];
 	postsById: Map<string, Post>;
@@ -60,13 +64,42 @@ function collectAuthors(posts: Post[]): AuthorSummary[] {
 	);
 }
 
-function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArchive {
+/**
+ * When each post in this archive was saved, and where that answer came from.
+ *
+ * Only an archive built from a list has such a date at all. A profile archive holds posts an
+ * account published, not posts anybody saved, so ttdl records nothing for one — and the viewer
+ * used to disagree, applying a single export to every archive at once. That put a saving date on
+ * the handful of posts you had happened to like from an account you also archive in full: seven
+ * posts out of 3,307 in one archive here, which is not an ordering anyone can use and not a claim
+ * the archive supports.
+ *
+ * `.liked.json` first, because it is ttdl's own answer and needs no searching. The export is read
+ * only for a list archive ttdl was never handed one for.
+ */
+function likedFor(scan: ArchiveScan, fallback: LikesIndex): { likes: LikesIndex; from: LikedFrom } {
+	if (scan.source === null) {
+		return { likes: EMPTY_LIKES, from: null };
+	}
+	const recorded = readLikedState(scan.dir);
+	if (recorded) {
+		return { likes: recorded, from: "ttdl" };
+	}
+	return fallback.size > 0
+		? { likes: fallback, from: "export" }
+		: { likes: EMPTY_LIKES, from: null };
+}
+
+const EMPTY_LIKES: LikesIndex = new Map();
+
+function indexArchive(root: string, name: string, fallback: LikesIndex): IndexedArchive {
 	const scan = scanArchive(root, name);
 	const archiveId = encodeURIComponent(name);
 	// A list archive's directory name says nothing about authorship (ttdl downloads those posts
 	// through /@/video/<id>, so `owner` is empty) — only .info.json can name the author there.
 	const kind = scan.source !== null ? "list" : "profile";
 	const fallbackHandle = kind === "profile" ? name : UNKNOWN_HANDLE;
+	const { likes, from: likedFrom } = likedFor(scan, fallback);
 
 	const posts: Post[] = [];
 	let ghosts = 0;
@@ -148,6 +181,7 @@ function indexArchive(root: string, name: string, likes: LikesIndex): IndexedArc
 	return {
 		archive,
 		scan,
+		likedFrom,
 		posts,
 		postsById: new Map(posts.map((p) => [p.id, p])),
 		// Taken after the scan, never before: a file that landed while we were reading would
@@ -181,16 +215,21 @@ export class Registry {
 
 	constructor(
 		private readonly root: string,
-		/** Post id → when it was saved. Empty when no export was given; every post then has
-		 *  `liked: null` and sorting by it puts them all last. */
-		private readonly likes: LikesIndex = new Map(),
+		/**
+		 * The export found beside the archives, for list archives ttdl never recorded dates for.
+		 * Empty when there is none; those posts then have `liked: null` and sorting by it puts
+		 * them all last.
+		 */
+		private readonly fallbackLikes: LikesIndex = new Map(),
+		/** Root-level names the export search claimed, which are therefore not archives. */
+		private readonly notArchives: ReadonlySet<string> = new Set(),
 	) {}
 
 	rebuild(): void {
 		const next = new Map<string, IndexedArchive>();
-		for (const name of listArchiveDirs(this.root)) {
+		for (const name of listArchiveDirs(this.root, this.notArchives)) {
 			try {
-				const indexed = indexArchive(this.root, name, this.likes);
+				const indexed = indexArchive(this.root, name, this.fallbackLikes);
 				next.set(indexed.archive.name, indexed);
 			} catch (error) {
 				// One unreadable directory must not take down the whole app; a folder that fails
@@ -207,7 +246,7 @@ export class Registry {
 	private reindex(name: string): IndexedArchive | null {
 		this.reindexedAt.set(name, Date.now());
 		try {
-			const indexed = indexArchive(this.root, name, this.likes);
+			const indexed = indexArchive(this.root, name, this.fallbackLikes);
 			this.archives.set(name, indexed);
 			return indexed;
 		} catch (error) {
@@ -251,7 +290,7 @@ export class Registry {
 	private sync(): void {
 		let names: Set<string>;
 		try {
-			names = new Set(listArchiveDirs(this.root));
+			names = new Set(listArchiveDirs(this.root, this.notArchives));
 		} catch (error) {
 			// The root being unreadable for a moment is no reason to forget what is already
 			// indexed; serving a stale list beats serving an empty one.

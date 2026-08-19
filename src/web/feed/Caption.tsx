@@ -68,6 +68,23 @@ export function Caption({ post, onHashtag }: CaptionProps) {
 				)}
 			</p>
 
+			{/*
+			 * When you saved this, on the line under when it was published.
+			 *
+			 * The two dates are different facts and the caption already carries the second, so this
+			 * gets its own line rather than a third chip on a line about the post's own date. The
+			 * verb does the work of a label: "liked" and "favorited" name the list it came from,
+			 * which is the only place either date exists — see the export note in `likes.ts`.
+			 */}
+			{post.liked && (
+				<p className={styles.saved} title="From your TikTok data export">
+					<span className={styles.savedKind}>
+						{post.liked.kind === "like" ? "liked" : "favorited"}
+					</span>{" "}
+					{date(post.liked.at)}
+				</p>
+			)}
+
 			{text && (
 				<>
 					<p className={styles.text} data-expanded={expanded || undefined}>

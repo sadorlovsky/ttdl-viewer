@@ -1,9 +1,10 @@
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { type Config, loadConfig } from "./config.ts";
-import { readLikes } from "./index/likes.ts";
+import { findLikes } from "./index/likes.ts";
 import { Registry } from "./index/registry.ts";
 import { apiRoutes, fail } from "./routes/api.ts";
 import { mediaRoutes } from "./routes/media.ts";
+import { rememberRoot, settingsPath } from "./settings.ts";
 
 let config: Config;
 try {
@@ -13,12 +14,17 @@ try {
 	process.exit(2);
 }
 
-const likes = readLikes(config.likesDir);
-const registry = new Registry(config.root, likes);
+const likes = findLikes(config.root, config.likesOverride);
+const registry = new Registry(config.root, likes.index, likes.notArchives);
 const started = performance.now();
 registry.rebuild();
 const stats = registry.stats();
 const tookMs = Math.round(performance.now() - started);
+
+// Only a root someone named. A probed one is a guess, and freezing a guess into a setting is how
+// a program ends up serving the wrong directory for months.
+const remembered =
+	config.rootFrom === "flag" || config.rootFrom === "env" ? rememberRoot(config.root) : null;
 
 const DIST = join(process.cwd(), "dist");
 
@@ -71,7 +77,7 @@ const server = Bun.serve({
 	port: config.port,
 	hostname: config.host,
 	routes: {
-		...apiRoutes(registry, config),
+		...apiRoutes(registry, { root: config.root, likesDir: likes.dir }),
 		...mediaRoutes(registry),
 	},
 	fetch: (request) => {
@@ -90,16 +96,57 @@ const server = Bun.serve({
 	},
 });
 
+/** The parenthetical after the root: where this path came from, and whether it will be next time. */
+function rootNote(): string {
+	if (config.rootFrom === "settings") {
+		return "  (remembered)";
+	}
+	if (remembered === "saved") {
+		return "  (remembered for next time)";
+	}
+	if (remembered === "failed") {
+		return `  (could not be written to ${settingsPath()})`;
+	}
+	return "";
+}
+
 console.log(`ttdl-viewer api  http://${server.hostname}:${server.port}`);
-console.log(`         root  ${config.root}`);
+console.log(`         root  ${config.root}${rootNote()}`);
 console.log(
 	`        index  ${stats.archives} archives, ${stats.posts} posts, ` +
 		`${(stats.bytes / 1e9).toFixed(2)} GB in ${tookMs} ms`,
 );
-if (config.likesDir) {
-	console.log(`        likes  ${likes.size} saved dates from ${config.likesDir}`);
-} else if (stats.archives > 0) {
-	console.log("        likes  none — pass --likes <export dir> to sort by when you saved a post");
+
+/**
+ * What the feed can order by "recently saved", and on whose authority.
+ *
+ * Said per source rather than as one total, because the two mean different things to whoever is
+ * reading: dates ttdl recorded are permanent, dates read out of an export sitting in the root last
+ * only as long as that folder does.
+ */
+const dated = registry.list().filter((a) => a.likedFrom !== null);
+const datedPosts = (from: string) =>
+	dated
+		.filter((a) => a.likedFrom === from)
+		.reduce((total, a) => total + a.posts.filter((p) => p.liked).length, 0);
+
+const plural = (n: number) => (n === 1 ? "date" : "dates");
+
+const recorded = datedPosts("ttdl");
+if (recorded > 0) {
+	console.log(`        saved  ${recorded} ${plural(recorded)} recorded by ttdl`);
+}
+const borrowed = datedPosts("export");
+if (borrowed > 0 && likes.dir) {
+	const where = likes.dir === config.root ? "the root" : `${relative(config.root, likes.dir)}/`;
+	console.log(`        saved  ${borrowed} ${plural(borrowed)} read from the export in ${where}`);
+	// The export is a folder someone will eventually tidy away; ttdl can put these dates somewhere
+	// they survive that, and it is one command.
+	const names = dated.filter((a) => a.likedFrom === "export").map((a) => a.archive.name);
+	console.log(
+		`               to keep them: ttdl.py get ${names.map((n) => JSON.stringify(n)).join(" ")}` +
+			` --likes ${likes.dir}`,
+	);
 }
 if (stats.archives === 0) {
 	console.log("\nNo archives found. Download one with ttdl, or run `bun run fixtures`.");

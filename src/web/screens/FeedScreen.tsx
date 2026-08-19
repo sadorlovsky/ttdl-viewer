@@ -70,7 +70,10 @@ function postLabel(post: Post): string {
 			: `Video${post.duration ? `, ${duration(post.duration)}` : ""}`;
 	// The same field the caption renders, so the two never disagree.
 	const text = (post.description ?? post.title).trim();
-	return `${who}, ${when}. ${kind}. ${text || "No caption"}`;
+	const saved = post.liked
+		? `. ${post.liked.kind === "like" ? "Liked" : "Favorited"} ${date(post.liked.at)}`
+		: "";
+	return `${who}, ${when}. ${kind}${saved}. ${text || "No caption"}`;
 }
 
 export function FeedScreen({ params }: { params: { archiveId: string; postId: string } }) {
