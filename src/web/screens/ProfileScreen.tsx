@@ -2,6 +2,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { parseQuery, serializeQuery } from "../../shared/filters.ts";
+import { gapClauses } from "../../shared/gaps.ts";
 import type { Archive, Post, PostQuery } from "../../shared/types.ts";
 import { flatten, totalOf, useArchive, usePosts } from "../api/client.ts";
 import { Avatar } from "../components/Avatar.tsx";
@@ -33,32 +34,39 @@ function columnsFor(width: number): number {
 	return 6;
 }
 
-type Tab = "all" | "video" | "carousel" | "incomplete";
+/*
+ * One axis, and only one. These used to carry a fourth tab, "Incomplete", which sat beside three
+ * kinds while describing a state — and a state only carousels can even be in, since a video is
+ * either on disk or not a post at all. So it was a filter wearing a tab's clothes, it was offered
+ * on every archive including the ones with nothing to put in it, and the emptiness it usually
+ * showed said nothing about the archive. It is a chip in the filter bar now, shown only where
+ * there is something to show. See FilterBar's `incomplete`.
+ */
+type Tab = "all" | "video" | "carousel";
 
 const TABS: Array<{ id: Tab; label: string }> = [
 	{ id: "all", label: "Posts" },
 	{ id: "video", label: "Videos" },
 	{ id: "carousel", label: "Photos" },
-	{ id: "incomplete", label: "Incomplete" },
 ];
 
-function tabToQuery(tab: Tab): Pick<PostQuery, "kind" | "status"> {
+function tabToQuery(tab: Tab): Pick<PostQuery, "kind"> {
 	switch (tab) {
 		case "video":
 			return { kind: "video" };
 		case "carousel":
 			return { kind: "carousel" };
-		case "incomplete":
-			return { status: "incomplete" };
 		default:
 			return {};
 	}
 }
 
+/** Whether this query asks a question only `.info.json` can answer. */
+function searchesMetadata(query: PostQuery): boolean {
+	return Boolean(query.q || query.hashtag?.length || query.author?.length);
+}
+
 function activeTab(query: PostQuery): Tab {
-	if (query.status === "incomplete") {
-		return "incomplete";
-	}
 	if (query.kind === "video") {
 		return "video";
 	}
@@ -101,6 +109,7 @@ function ArchiveHeader({
 
 	const author = archive.primaryAuthor;
 	const card = archive.card;
+	const gaps = gapClauses(counts);
 
 	return (
 		<header className={styles.header}>
@@ -172,12 +181,7 @@ function ArchiveHeader({
 				)}
 				{countedCaption && <p className={styles.caption}>{countedCaption}</p>}
 
-				{counts.missing > 0 && (
-					<p className={styles.gap}>
-						ttdl could not fetch {counts.missing} more {counts.missing === 1 ? "post" : "posts"}
-						{counts.withoutInfo > 0 ? `, and ${counts.withoutInfo} here have no metadata` : ""}
-					</p>
-				)}
+				{gaps.length > 0 && <p className={styles.gap}>{gaps.join(" · ")}</p>}
 			</div>
 
 			{archive.kind === "list" && archive.authorCount > 1 && (
@@ -477,7 +481,16 @@ export function ProfileScreen({ params }: { params: { archiveId: string } }) {
 				) : items.length === 0 ? (
 					<div className={styles.none}>
 						<p className={empty.body}>No posts match this view.</p>
-						{archive.data?.counts.withoutInfo ? (
+						{/*
+						 * The command is offered only when missing metadata could be *why* this is
+						 * empty. It used to appear whenever the archive had any post without an
+						 * .info.json, which put "./ttdl.py meta" under an empty Incomplete tab it
+						 * had nothing to do with — that view was empty because no carousel was
+						 * half-downloaded, and fetching metadata would not have added one post to
+						 * it. A caption search, a hashtag or an author filter are the searches that
+						 * read metadata, so those are the ones a gap in it can answer for.
+						 */}
+						{archive.data?.counts.withoutInfo && searchesMetadata(query) ? (
 							<pre className={empty.command}>./ttdl.py meta {archive.data.name}</pre>
 						) : null}
 					</div>

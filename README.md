@@ -183,7 +183,8 @@ Two deliberate divergences from ttdl:
 - **Incomplete carousels are kept.** ttdl drops them, because for ttdl "incomplete" means "fetch
   it again". A viewer has the opposite obligation, so they are surfaced with `status: incomplete`,
   play the images that exist, and show the missing ones as hatched segments. The default API
-  filter is `status=complete`, so they stay opt-in.
+  filter is `status=complete`, so they stay opt-in — the opt-in being an amber Incomplete chip in
+  the filter bar, which appears only on an archive that actually holds one.
 - **A date is always resolvable.** `info.timestamp` when present, otherwise the post id itself —
   its upper 32 bits are Unix seconds (`post_day`, ttdl.py:178). `createdAtSource` is exposed so
   the UI can mark an inferred date as inferred.

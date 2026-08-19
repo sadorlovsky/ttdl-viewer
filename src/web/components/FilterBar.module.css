@@ -95,6 +95,44 @@
 	color: var(--text);
 }
 
+/*
+ * The incomplete chip. Sized and shaped exactly like `.more` beside it — it is the same kind of
+ * thing, a control that narrows what the grid shows — and separated from it only by color, which
+ * is the archive's own vocabulary for absence rather than a second style of button.
+ */
+.incomplete {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	/* The same hairline every resting control in this bar has: amber is the label's job here, and
+	   giving the border it too left the off state looking like the on one. */
+	border: 1px solid var(--line);
+	border-radius: var(--radius-pill);
+	background: var(--surface);
+	color: var(--warn);
+	font-size: 13px;
+	transition:
+		background var(--dur-fast) var(--ease),
+		border-color var(--dur-fast) var(--ease);
+}
+
+.incomplete:hover {
+	border-color: var(--warn);
+}
+
+.incomplete[data-on] {
+	border-color: var(--warn);
+	background: var(--warn-tint);
+}
+
+.incompleteCount {
+	color: var(--warn);
+	opacity: 0.72;
+	font-variant-numeric: tabular-nums;
+}
+
 .count {
 	color: var(--text-4);
 	font-size: 12.5px;

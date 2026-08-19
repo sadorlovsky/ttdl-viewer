@@ -172,6 +172,7 @@ export function FilterBar({ archiveId, archive, query, onQuery, total, loading }
 	const clearDate = () => onQuery({ ...query, from: undefined, to: undefined });
 
 	const hasExtraFilters = Boolean(activeDuration) || Boolean(query.from) || Boolean(query.to);
+	const incomplete = archive?.counts.incomplete ?? 0;
 
 	// One row, every kind of active filter, the same "read it, then remove it" affordance —
 	// a hashtag is not privileged over a duration bucket or a date range.
@@ -244,6 +245,31 @@ export function FilterBar({ archiveId, archive, query, onQuery, total, loading }
 			>
 				Filters
 			</button>
+
+			{/*
+			 * Only carousels can be incomplete — a video is on disk or it is not a post — so this
+			 * is offered wherever carousels are in view and nowhere else, and only when the archive
+			 * actually holds some. It used to be a tab, which meant every archive advertised a view
+			 * that was empty in five out of six of them here.
+			 *
+			 * Amber, because that is what this codebase spends on absence: the archive is not
+			 * whole, which is a fact about the download and not a fault to fix in the app.
+			 */}
+			{incomplete > 0 && query.kind !== "video" && (
+				<button
+					className={styles.incomplete}
+					data-on={query.status === "incomplete" || undefined}
+					onClick={() =>
+						onQuery({
+							...query,
+							status: query.status === "incomplete" ? undefined : "incomplete",
+						})
+					}
+				>
+					Incomplete
+					<span className={styles.incompleteCount}>{incomplete}</span>
+				</button>
+			)}
 
 			<span className={styles.count}>
 				{loading ? "…" : `${total.toLocaleString()} ${total === 1 ? "post" : "posts"}`}

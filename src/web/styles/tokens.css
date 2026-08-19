@@ -24,6 +24,10 @@
 	--accent: #fe2c55;
 	--accent-2: #25f4ee;
 	--warn: #ffb400;
+	/* The one tint that is a token rather than a literal. DESIGN.md asks for exactly this the next
+	   time an accent needs a ground: four raw rgb() tints already exist and are the system's only
+	   token drift, so the fifth is declared here instead of joining them. */
+	--warn-tint: rgb(255 180 0 / 0.14);
 
 	--scrim: linear-gradient(transparent, rgb(0 0 0 / 0.55));
 	--shadow-text: 0 1px 3px rgb(0 0 0 / 0.6);

@@ -223,8 +223,10 @@ opacity, and the three chromatic values are rationed.
 
 - **Missing-Frame Amber** (`#ffb400`): Absence, never error. It carries the incomplete-carousel
   count, the hatched diagonal fill on segments whose images the archive never got, the caption's
-  missing-image warning, and the library card's gap notice. Nothing has gone wrong when it appears —
-  the archive is simply not whole, which is a fact about the download, not a fault in the app.
+  missing-image warning, the library card's gap notice, the profile header's gap line, and the
+  Incomplete chip in the filter bar. Nothing has gone wrong when it appears — the archive is simply
+  not whole, which is a fact about the download, not a fault in the app. `--warn-tint` (14%) is the
+  only ground it is allowed to fill, and only under the chip's selected state.
 
 ### Neutral
 
@@ -256,6 +258,12 @@ because it "looked right" fractures the ramp and is a defect, not a refinement.
 **The Amber-Is-Absence Rule.** Missing-Frame Amber may only describe something the archive does
 not have. It is never a validation error, never a destructive-action warning, and never a general
 caution — those states do not exist in a read-only viewer.
+
+**The Separate-Absences Rule.** The four things an archive can be missing — posts ttdl could not
+fetch, ids listed but not on disk, posts here without metadata, posts here without their media
+file — are four clauses, each shown only when its own count is above zero, never one sentence with
+the others tacked on. They are answered by different commands and two of them are not failures of
+the download at all, so a reader has to be able to tell which one they are looking at.
 
 ## Typography
 
@@ -447,6 +455,11 @@ foreign.
   14% tint with a `×` affordance in `--text-3`.
 - **Overflow:** The author chip row scrolls horizontally with the scrollbar hidden — it is a
   browsable strip, not a wrapping field.
+- **Incomplete:** The one amber chip. Shaped exactly like the `Filters` button beside it, because
+  it is the same kind of thing — a control that narrows the grid — and separated from it only by
+  the color of its label. At rest it takes the bar's ordinary 12% hairline; selected, the border
+  goes full amber and the ground takes `--warn-tint`. It appears only when the archive actually
+  holds an incomplete post and only where carousels are in view, so most archives never see it.
 
 ### Cards / Containers
 
@@ -472,6 +485,11 @@ foreign.
 - **Tabs:** Text-only, `14px`/500, `--text-3` at rest, `--text-2` on hover, full white when active,
   sitting on a 12% bottom hairline. The active tab draws a `2px` Signal Rose underline inset
   `16px` from each edge, overlapping the hairline by `1px` so the two read as one line.
+- **One axis per row.** The tabs sort posts by *kind* — Posts, Videos, Photos — and nothing else.
+  State belongs to a filter chip, which can be shown only where it applies and hidden where it
+  would be empty; a tab cannot. The Incomplete tab that used to sit fourth here was a state, it
+  applied to carousels alone, and it was offered on every archive including the ones with nothing
+  to put in it.
 - **Back:** A `34px` circle with a `-8px` left margin so the glyph optically aligns with the
   content edge rather than the box edge.
 
