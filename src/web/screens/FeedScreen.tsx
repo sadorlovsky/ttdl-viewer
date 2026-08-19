@@ -25,7 +25,7 @@ import { Caption } from "../feed/Caption.tsx";
 import { CarouselSlide } from "../feed/CarouselSlide.tsx";
 import type { SlideControls } from "../feed/controls.ts";
 import { DebugPanel } from "../feed/DebugPanel.tsx";
-import { playbackVolume, resumeAudio } from "../feed/loudness.ts";
+import { resumeAudio, setLevel } from "../feed/loudness.ts";
 import { PostMenu } from "../feed/PostMenu.tsx";
 import { VideoSlide } from "../feed/VideoSlide.tsx";
 import { date, duration } from "../lib/format.ts";
@@ -417,7 +417,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 		// and the moment between them is audible: the element would come back at full volume and
 		// only then be pulled down to the post's level, which on the loud posts is the flinch this
 		// correction exists to prevent.
-		media.volume = playbackVolume(activePost, usePlayer.getState().volume);
+		setLevel(media, activePost, usePlayer.getState().volume);
 		if (swap) {
 			void media.play().catch(() => undefined);
 		}

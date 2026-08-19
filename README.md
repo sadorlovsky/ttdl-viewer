@@ -145,20 +145,23 @@ bun run start                # the levels are simply even
 Running it against an archive the viewer already has open needs no restart: `loudness.json` is in
 the change probe, and `ttdl.py loudness` on a finished archive rewrites nothing else at all.
 
-### Down is a number, up is a graph
+### Two ways to apply it, and the browser picks
 
-Pulling a post down is one multiplication on `element.volume`, and it cannot go wrong —
-attenuation cannot clip, so there is nothing to limit and no `DynamicsCompressor` smearing
-transients to pay for a rescue that was never needed.
+`element.volume` costs nothing and expresses attenuation exactly. It cannot amplify — the property
+stops at 1 — and **on iOS it does not work at all**: WebKit treats playback volume as the user's
+hardware business, ignores what it is told, and reports 1 whatever was written.
 
-Pushing a post up is not: `volume` is capped at 1, so the only way to amplify is to route the
-element through a WebAudio graph, and that costs. Routing is a one-way door — an element accepts
-a `MediaElementAudioSourceNode` once, never gives it back, and from then on its sound reaches the
-speakers only through the graph. A graph is silent for as long as its `AudioContext` is suspended,
-which is the state a feed that opens muted by autoplay policy is in. And on iOS it moves the sound
-onto a path that obeys the ringer switch, which `<video playsinline>` does not.
+That is not a footnote. This shipped applying attenuation through `volume` and amplification
+through a WebAudio gain node, which on a desktop is exactly right and on an iPhone does half the
+job: every quiet post lifted, not one loud post lowered. The archive came out louder than it
+started and just as uneven — which is the opposite of the point.
 
-That was worth refusing right up until the archives here were measured:
+So the graph carries whatever `volume` cannot: always amplification, and attenuation too wherever
+`volume` is ignored. Which kind of browser this is gets asked of a real element rather than
+guessed from a user agent — set `volume` to 0.5, read it back, believe the answer.
+
+The graph is worth its cost only because of what the measurements say. Over four archives here —
+98 posts measured whole, 30 sampled from each of the others:
 
 | archive | integrated | true peak | gain | asks to be quieter | asks to be louder |
 |---|---|---|---|---|---|
@@ -169,36 +172,47 @@ That was worth refusing right up until the archives here were measured:
 
 Medians, against a −14 LUFS target. The median post asks to be made *louder*, the true-peak cap
 ttdl applies barely bites because these files are mastered with headroom, and every archive holds
-posts asking for more than +18 dB. Attenuation alone would have addressed a fifth of the problem
-on the archive that needed it most — so the graph is built, under rules that make it free when it
-cannot work:
+posts asking for more than +18 dB.
+
+Routing an element is a one-way door — it accepts a `MediaElementAudioSourceNode` once, never
+gives it back, and from then on its sound reaches the speakers only through the graph — so it is
+done under rules that keep it from costing anything:
 
 - **Nothing is routed until a gesture.** The context is created by the first touch on the feed (or
   the speaker button, for a keyboard), because a context created inside a gesture may start
-  running and one created at any other moment starts suspended. Until then, posts wanting a boost
-  wait in a queue.
-- **Nothing is routed into a suspended context**, since an element routed into one is not quieter,
-  it is silent.
+  running and one created at any other moment starts suspended. Until then a post is corrected as
+  far as `volume` allows, and the rest arrives when the context wakes.
+- **Nothing is routed into a suspended context**, since an element routed into one is not
+  corrected, it is silent.
+- **The nodes are disconnected when the slide goes**, because a connected node is reachable from
+  the context and would hold every `<video>` the feed had swiped past.
 
 **Amplification stops at +12 dB.** ttdl caps its gain by the true peak and deliberately goes no
 further: a maximum boost, it says, is the consumer's policy rather than an archive's. This is the
 consumer. A post measured at −41 LUFS asks for +26 dB, and 26 dB below target on a phone recording
-is mostly the noise floor — amplifying it produces a loud hiss with a voice somewhere inside.
+is mostly the noise floor. Attenuation is not capped — it cannot clip, and it cannot amplify a
+noise floor.
 
-### The iOS question, answered
+### Reading what happened
 
-The graph shipped banned on iOS, on the received wisdom that a routed element's sound obeys the
-ringer switch where an unrouted one does not. It was then tried on an iPhone: open the post with
-`?boost=1&debug=1`, turn the sound on, watch the panel say `boost=12.0`, flip the switch to
-silent. Nothing changed. The wisdom describes a context playing on its own; this one is fed by a
-`<video>` that is already playing, so the audio session belongs to the element, and that session
-is not the one the switch silences. The ban is gone — every platform gets the graph.
+`?debug=1` prints the element's own volume and the correction beside it, which have to be read
+together: a routed element plays flat and its whole level lives in the node, while an unrouted one
+carries what it can in `volume`.
 
-The flag stayed, because a device that turns out to need the graph off should not need a deploy:
-`?boost=0` turns it off, `?boost=1` turns it back on. And `?debug=1` still prints what actually
-happened to the post on screen — `boost=7.2` once the gain is applied, `boost=wait` while the
-context is still asleep, `boost=off` where the flag forbade it, `-` where the post asked for
-nothing. All four sound identical from the outside, which is why they are written down.
+| `gain=` | meaning |
+|---|---|
+| `-5.1` / `12.0` | the correction is on the post, through the node or through `volume` |
+| `wait` | it needs the graph, and no gesture has created the context yet |
+| `off` | it needs the graph, and `?boost=0` forbade one |
+| `deaf` | `volume` is ignored here and the graph is forbidden — nothing is applied |
+| `0.0` | the post asked for nothing |
+
+`?boost=0` turns the graph off on a device that turns out to need it off, without a deploy;
+`?boost=1` turns it back on. It shipped as the way to answer whether iOS could have the graph at
+all — the received wisdom being that a routed element obeys the ringer switch. It does not: on an
+iPhone, at a post reading `gain=12.0`, flipping the switch to silent changed nothing. That wisdom
+describes a context playing on its own, and this one is fed by a `<video>` that is already
+playing, so the session is the element's.
 
 A post ttdl has not measured — an archive the command was never run over, a post with no
 soundtrack, a download that was cut short — plays exactly as it did before any of this existed.

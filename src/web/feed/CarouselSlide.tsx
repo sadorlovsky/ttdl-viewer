@@ -5,7 +5,7 @@ import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import { bankLap, type Lap, shiftFor } from "./clock.ts";
 import type { SlideControls } from "./controls.ts";
-import { boost, boostFor, playbackVolume } from "./loudness.ts";
+import { releaseLevel, setLevel } from "./loudness.ts";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
 
@@ -191,7 +191,7 @@ export function CarouselSlide({
 		if (!audio) {
 			return;
 		}
-		audio.volume = playbackVolume(post, volume);
+		setLevel(audio, post, volume);
 		// Keep the element playing even with the sound off. Autoplay policy allows a muted
 		// element, and `currentTime` is the clock the images run on — stopping it would freeze
 		// the slideshow whenever the user mutes.
@@ -203,21 +203,16 @@ export function CarouselSlide({
 		audio.playbackRate = rate;
 	}, [muted, volume, rate, post]);
 
-	/*
-	 * The other half of the correction, and the half that needs a graph rather than a number.
-	 *
-	 * Nothing happens here until the sound has been turned on: the element is queued, and the
-	 * gesture that creates the audio context flushes the queue. Which is also why this is its own
-	 * effect — it must not re-run on every volume or rate change, since the routing it performs
-	 * is permanent and only the gain value is worth revisiting.
-	 */
+	// The level above is applied to a graph when the browser needs one, and that record has to be
+	// dropped when the element goes: it is keyed on an element that is about to stop existing.
 	useEffect(() => {
 		const element = audioRef.current;
-		if (!element) {
-			return;
-		}
-		return boost(element, boostFor(post));
-	}, [post]);
+		return () => {
+			if (element) {
+				releaseLevel(element);
+			}
+		};
+	}, []);
 
 	/**
 	 * Re-anchor the wall clock when the rate changes, then adopt the new rate.

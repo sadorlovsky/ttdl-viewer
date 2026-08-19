@@ -4,7 +4,7 @@ import { PlayIcon } from "../components/Icons.tsx";
 import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import type { SlideControls } from "./controls.ts";
-import { boost, boostFor, playbackVolume } from "./loudness.ts";
+import { releaseLevel, setLevel } from "./loudness.ts";
 import { Scrubber } from "./Scrubber.tsx";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
@@ -260,7 +260,7 @@ export function VideoSlide({
 			return;
 		}
 		video.muted = muted;
-		video.volume = playbackVolume(post, volume);
+		setLevel(video, post, volume);
 		/*
 		 * Both, and `defaultPlaybackRate` is the one that matters.
 		 *
@@ -278,21 +278,16 @@ export function VideoSlide({
 		video.playbackRate = rate;
 	}, [muted, volume, rate, post]);
 
-	/*
-	 * The other half of the correction, and the half that needs a graph rather than a number.
-	 *
-	 * Nothing happens here until the sound has been turned on: the element is queued, and the
-	 * gesture that creates the audio context flushes the queue. Which is also why this is its own
-	 * effect — it must not re-run on every volume or rate change, since the routing it performs
-	 * is permanent and only the gain value is worth revisiting.
-	 */
+	// The level above is applied to a graph when the browser needs one, and that record has to be
+	// dropped when the element goes: it is keyed on an element that is about to stop existing.
 	useEffect(() => {
 		const element = videoRef.current;
-		if (!element) {
-			return;
-		}
-		return boost(element, boostFor(post));
-	}, [post]);
+		return () => {
+			if (element) {
+				releaseLevel(element);
+			}
+		};
+	}, []);
 
 	/**
 	 * Start this element, and give the sound up if that is the only way it will run.

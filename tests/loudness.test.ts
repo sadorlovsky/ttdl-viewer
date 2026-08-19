@@ -16,10 +16,12 @@ import { type LoudnessIndex, readLoudness } from "../src/server/index/loudness.t
 import { Registry } from "../src/server/index/registry.ts";
 import type { Post } from "../src/shared/types.ts";
 import {
-	boostFor,
-	boostPermitted,
+	correctionFor,
+	elementVolume,
+	graphPermitted,
 	MAX_BOOST_DB,
-	playbackVolume,
+	needsGraph,
+	nodeGain,
 } from "../src/web/feed/loudness.ts";
 
 const LOUD = "7467909701850696968";
@@ -80,82 +82,99 @@ describe("readLoudness", () => {
 	});
 });
 
-describe("playbackVolume", () => {
+describe("correctionFor", () => {
 	const post = (loudnessGain: number | null) => ({ loudnessGain }) as Post;
 
-	test("a loud post is pulled down by the decibels ttdl asked for", () => {
-		// −6.02 dB is half the amplitude, which is the one conversion worth pinning by hand.
-		expect(playbackVolume(post(-6.0206), 1)).toBeCloseTo(0.5, 4);
+	test("is the shift ttdl asked for", () => {
+		expect(correctionFor(post(-5.1))).toBe(-5.1);
+		expect(correctionFor(post(4.4))).toBe(4.4);
 	});
 
-	test("the viewer's own volume stays the outer term", () => {
-		expect(playbackVolume(post(-6.0206), 0.4)).toBeCloseTo(0.2, 4);
-		expect(playbackVolume(post(-6.0206), 0)).toBe(0);
+	test("is nothing for a post nothing measured", () => {
+		// An archive ttdl never ran `loudness` over, a post with no sound, a download that was cut
+		// short. All three arrive as null and all three mean "leave this alone".
+		expect(correctionFor(post(null))).toBe(0);
+		expect(correctionFor(post(0))).toBe(0);
 	});
 
-	test("a post asking to be made louder is left alone", () => {
-		// Not a policy about loudness — `volume` is capped at 1, and the only way to exceed it is
-		// a WebAudio graph this screen deliberately does not build. See the module comment.
-		expect(playbackVolume(post(9), 1)).toBe(1);
-		expect(playbackVolume(post(9), 0.5)).toBe(0.5);
+	test("amplification stops at the ceiling, attenuation does not", () => {
+		// A real archive here holds posts measured at -41 LUFS, which ask for +26 dB. ttdl is
+		// right not to cap that — it does not know what the file will be played on — and this is
+		// where the policy belongs: past the ceiling what gets amplified is the noise floor.
+		// Downwards there is nothing to protect against: attenuation cannot clip.
+		expect(correctionFor(post(26.12))).toBe(MAX_BOOST_DB);
+		expect(correctionFor(post(-26.12))).toBe(-26.12);
+	});
+});
+
+describe("the two ways a level is expressed", () => {
+	test("without a graph, only attenuation survives", () => {
+		// -6.02 dB is half the amplitude, which is the one conversion worth pinning by hand.
+		expect(elementVolume(-6.0206, 1)).toBeCloseTo(0.5, 4);
+		// And a post asking to be amplified is simply left where it is: `volume` stops at 1.
+		expect(elementVolume(9, 1)).toBe(1);
+		expect(elementVolume(9, 0.4)).toBe(0.4);
 	});
 
-	test("an unmeasured post plays exactly as it did before any of this existed", () => {
-		expect(playbackVolume(post(null), 1)).toBe(1);
-		expect(playbackVolume(post(null), 0.3)).toBe(0.3);
+	test("with a graph, both directions go through the node", () => {
+		expect(nodeGain(-6.0206, 1)).toBeCloseTo(0.5, 4);
+		expect(nodeGain(6.0206, 1)).toBeCloseTo(2, 4);
 	});
 
-	test("the result is always a volume an element will accept", () => {
-		for (const gain of [-0.01, -14, -60, -200]) {
-			const volume = playbackVolume(post(gain), 1);
+	test("the viewer's volume stays the outer term either way", () => {
+		expect(elementVolume(-6.0206, 0.4)).toBeCloseTo(0.2, 4);
+		expect(nodeGain(6.0206, 0.5)).toBeCloseTo(1, 4);
+		expect(elementVolume(-3, 0)).toBe(0);
+		expect(nodeGain(12, 0)).toBe(0);
+	});
+
+	test("what an element is given is always a volume it will accept", () => {
+		for (const correction of [-0.01, -14, -60, -200, 3, 12]) {
+			const volume = elementVolume(correction, 1);
 			expect(volume).toBeGreaterThanOrEqual(0);
 			expect(volume).toBeLessThanOrEqual(1);
 		}
 	});
 });
 
-describe("boostFor", () => {
-	const post = (loudnessGain: number | null) => ({ loudnessGain }) as Post;
-
-	test("is the amplification a post asks for", () => {
-		expect(boostFor(post(4.4))).toBe(4.4);
+describe("needsGraph", () => {
+	test("a post that asked for nothing is left where it is", () => {
+		expect(needsGraph(0, true)).toBe(false);
+		expect(needsGraph(0, false)).toBe(false);
 	});
 
-	test("is nothing at all for a post that wants pulling down, or was never measured", () => {
-		// The two are handled by `playbackVolume`, which is a multiplication and needs no graph.
-		expect(boostFor(post(-5.1))).toBe(0);
-		expect(boostFor(post(0))).toBe(0);
-		expect(boostFor(post(null))).toBe(0);
+	test("amplification always needs one, because `volume` stops at 1", () => {
+		expect(needsGraph(4.4, true)).toBe(true);
 	});
 
-	test("stops at the ceiling", () => {
-		// A real archive here holds posts measured at -41 LUFS, which ask for +26 dB. ttdl is
-		// right not to cap that — it does not know what the file will be played on — and this is
-		// where the policy belongs: past the ceiling what gets amplified is the noise floor.
-		expect(boostFor(post(26.12))).toBe(MAX_BOOST_DB);
-		expect(boostFor(post(MAX_BOOST_DB))).toBe(MAX_BOOST_DB);
+	test("attenuation needs one only where `volume` is ignored", () => {
+		// Which is iOS, and is the bug this rule exists for: with `volume` alone an iPhone got
+		// every quiet post lifted and not one loud post lowered, leaving the archive louder than
+		// it started and exactly as uneven.
+		expect(needsGraph(-5.1, true)).toBe(false);
+		expect(needsGraph(-5.1, false)).toBe(true);
 	});
 });
 
-describe("boostPermitted", () => {
+describe("graphPermitted", () => {
 	test("the graph is allowed by default, on every platform", () => {
 		// It was not, once: iOS was banned on the received wisdom that a routed element obeys the
 		// ringer switch. Tried on an iPhone with `?boost=1&debug=1` — sound on, `boost=12.0` in
 		// the panel, switch flipped to silent, nothing changed. The ban is gone; see the module.
-		expect(boostPermitted("")).toBe(true);
-		expect(boostPermitted("?debug=1")).toBe(true);
+		expect(graphPermitted("")).toBe(true);
+		expect(graphPermitted("?debug=1")).toBe(true);
 	});
 
 	test("`?boost=0` turns it off, which is the only thing that does", () => {
 		// The escape hatch for a device that turns out to need one, without a deploy.
-		expect(boostPermitted("?boost=0")).toBe(false);
-		expect(boostPermitted("?debug=1&boost=0")).toBe(false);
+		expect(graphPermitted("?boost=0")).toBe(false);
+		expect(graphPermitted("?debug=1&boost=0")).toBe(false);
 	});
 
 	test("anything else in the flag is not an answer", () => {
-		expect(boostPermitted("?boost=1")).toBe(true);
-		expect(boostPermitted("?boost=no")).toBe(true);
-		expect(boostPermitted("?boost=")).toBe(true);
+		expect(graphPermitted("?boost=1")).toBe(true);
+		expect(graphPermitted("?boost=no")).toBe(true);
+		expect(graphPermitted("?boost=")).toBe(true);
 	});
 });
 
