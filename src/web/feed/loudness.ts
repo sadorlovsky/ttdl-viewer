@@ -15,9 +15,8 @@
  * **Up is a graph.** `volume` is capped at 1, so the only way to make a post louder is to route
  * the element through WebAudio, and that is a real cost: routing an element is a one-way door (it
  * accepts a `MediaElementAudioSourceNode` once and never gives it back, and the moment it has
- * one, its sound reaches the speakers only through the graph), a graph is silent for as long as
- * its `AudioContext` is suspended, and on iOS it moves the sound onto a path that obeys the
- * ringer switch when `<video playsinline>` does not.
+ * one, its sound reaches the speakers only through the graph) and a graph is silent for as long
+ * as its `AudioContext` is suspended.
  *
  * That cost was worth refusing right up until the archives were measured, and then it was not.
  * Over four of them — 98 posts measured whole, 30 sampled from each of the others — the median
@@ -28,8 +27,8 @@
  * that needed it most.
  *
  * So the graph is built — but only where it cannot cost anything: never before a gesture has
- * given the context a chance to run, never while the context is suspended (which would silence
- * the post outright), and never on iOS unless it is asked for by hand. See `boostAllowed`.
+ * given the context a chance to run, and never while the context is suspended, which would
+ * silence the post outright rather than amplify it. See `boostAllowed`.
  */
 
 import type { Post } from "../../shared/types.ts";
@@ -79,30 +78,28 @@ export function boostFor(post: Post): number {
 }
 
 /**
- * Whether the graph may be built at all, given what the browser says about itself.
+ * Whether the graph may be built at all.
  *
- * The ban is iOS, where a routed element's sound obeys the ringer switch and an unrouted one does
- * not — a feed that goes mute because a hardware switch is flipped is worse than a few quiet
- * posts staying quiet. iPadOS has reported itself as a Mac since version 13, so the touch points
- * are what give it away.
+ * This shipped banning iOS, on the received wisdom that a routed element's sound obeys the ringer
+ * switch where an unrouted one does not — a feed that goes mute because a hardware switch was
+ * flipped being worse than a few quiet posts staying quiet. It was then tried on an iPhone, with
+ * `?boost=1&debug=1`: sound on, `boost=12.0` in the panel, switch to silent, nothing changed.
+ * The wisdom does not apply here, and the likely reason is that it describes a context playing on
+ * its own — this one is fed by a `<video>` that is already playing, so the audio session is the
+ * element's, and that session is not the one the switch silences.
  *
- * `?boost=1` forces it on and `?boost=0` off, which is how that ban gets tested rather than
- * assumed: open the feed on the phone with `?boost=1&debug=1`, turn the sound on, and flip the
- * switch. If the post keeps playing, the ban is wrong and can go.
+ * So there is no platform rule left, and the flag stays anyway: `?boost=0` turns the graph off on
+ * a device that turns out to need it off, without a deploy. `?boost=1` is the same switch the
+ * other way, and is what the iPhone above was asked with.
  *
- * Pure, and takes what it reads: the same decision has to be checkable without a browser to run
- * it in.
+ * Pure, and takes what it reads: the decision has to be checkable without a browser to run it in.
  */
-export function boostPermitted(search: string, platform: string, touchPoints: number): boolean {
-	const flag = new URLSearchParams(search).get("boost");
-	if (flag === "1" || flag === "0") {
-		return flag === "1";
-	}
-	return !(/iP(hone|ad|od)/.test(platform) || (platform === "MacIntel" && touchPoints > 1));
+export function boostPermitted(search: string): boolean {
+	return new URLSearchParams(search).get("boost") !== "0";
 }
 
 /**
- * The same answer, asked of this browser once and then kept.
+ * The same answer, asked of this page once and then kept.
  *
  * Not at import: a module that reads the URL merely because it was loaded cannot be loaded
  * anywhere else, and there is nothing to decide until a post actually asks to be amplified. That
@@ -113,8 +110,7 @@ let allowed: boolean | null = null;
 
 export function boostAllowed(): boolean {
 	if (allowed === null) {
-		const { platform, maxTouchPoints } = window.navigator;
-		allowed = boostPermitted(window.location.search, platform, maxTouchPoints);
+		allowed = boostPermitted(window.location.search);
 	}
 	return allowed;
 }

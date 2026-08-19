@@ -138,33 +138,24 @@ describe("boostFor", () => {
 });
 
 describe("boostPermitted", () => {
-	const IPHONE = ["iPhone", 5] as const;
-	const IPAD = ["MacIntel", 5] as const;
-	const MAC = ["MacIntel", 0] as const;
-
-	test("a desktop browser gets the graph", () => {
-		expect(boostPermitted("", ...MAC)).toBe(true);
-		expect(boostPermitted("?debug=1", ...MAC)).toBe(true);
+	test("the graph is allowed by default, on every platform", () => {
+		// It was not, once: iOS was banned on the received wisdom that a routed element obeys the
+		// ringer switch. Tried on an iPhone with `?boost=1&debug=1` — sound on, `boost=12.0` in
+		// the panel, switch flipped to silent, nothing changed. The ban is gone; see the module.
+		expect(boostPermitted("")).toBe(true);
+		expect(boostPermitted("?debug=1")).toBe(true);
 	});
 
-	test("iOS does not, and an iPad is iOS however it introduces itself", () => {
-		// iPadOS has reported MacIntel since version 13; the touch points are the only tell, and
-		// a Mac that answers this wrongly costs quiet posts, while an iPad that does costs sound.
-		expect(boostPermitted("", ...IPHONE)).toBe(false);
-		expect(boostPermitted("", ...IPAD)).toBe(false);
-	});
-
-	test("the flag overrides the platform in both directions", () => {
-		// Which is the whole point of having it: the iOS ban is a guess until someone stands in
-		// front of a phone with the ringer switch and settles it.
-		expect(boostPermitted("?boost=1", ...IPHONE)).toBe(true);
-		expect(boostPermitted("?debug=1&boost=1", ...IPAD)).toBe(true);
-		expect(boostPermitted("?boost=0", ...MAC)).toBe(false);
+	test("`?boost=0` turns it off, which is the only thing that does", () => {
+		// The escape hatch for a device that turns out to need one, without a deploy.
+		expect(boostPermitted("?boost=0")).toBe(false);
+		expect(boostPermitted("?debug=1&boost=0")).toBe(false);
 	});
 
 	test("anything else in the flag is not an answer", () => {
-		expect(boostPermitted("?boost=yes", ...IPHONE)).toBe(false);
-		expect(boostPermitted("?boost=", ...MAC)).toBe(true);
+		expect(boostPermitted("?boost=1")).toBe(true);
+		expect(boostPermitted("?boost=no")).toBe(true);
+		expect(boostPermitted("?boost=")).toBe(true);
 	});
 });
 

@@ -179,24 +179,26 @@ cannot work:
   wait in a queue.
 - **Nothing is routed into a suspended context**, since an element routed into one is not quieter,
   it is silent.
-- **Nothing is routed on iOS**, until somebody proves the ringer switch does not take the sound
-  away — see below.
 
 **Amplification stops at +12 dB.** ttdl caps its gain by the true peak and deliberately goes no
 further: a maximum boost, it says, is the consumer's policy rather than an archive's. This is the
 consumer. A post measured at −41 LUFS asks for +26 dB, and 26 dB below target on a phone recording
 is mostly the noise floor — amplifying it produces a loud hiss with a voice somewhere inside.
 
-### Answering the iOS question
+### The iOS question, answered
 
-`?boost=1` forces the graph on whatever the platform, `?boost=0` forces it off. With `?debug=1`
-the panel prints what actually happened to the post on screen — `boost=7.2` once the gain is
-applied, `boost=wait` while the context is still asleep, `boost=off` where it is not allowed, `-`
-where the post asked for nothing. All four sound identical from the outside, which is why they are
-written down.
+The graph shipped banned on iOS, on the received wisdom that a routed element's sound obeys the
+ringer switch where an unrouted one does not. It was then tried on an iPhone: open the post with
+`?boost=1&debug=1`, turn the sound on, watch the panel say `boost=12.0`, flip the switch to
+silent. Nothing changed. The wisdom describes a context playing on its own; this one is fed by a
+`<video>` that is already playing, so the audio session belongs to the element, and that session
+is not the one the switch silences. The ban is gone — every platform gets the graph.
 
-So: open the feed on the phone at `…/feed/<post>?boost=1&debug=1`, turn the sound on, and flip the
-ringer switch. If the post keeps playing, the ban in `boostPermitted` is wrong and can go.
+The flag stayed, because a device that turns out to need the graph off should not need a deploy:
+`?boost=0` turns it off, `?boost=1` turns it back on. And `?debug=1` still prints what actually
+happened to the post on screen — `boost=7.2` once the gain is applied, `boost=wait` while the
+context is still asleep, `boost=off` where the flag forbade it, `-` where the post asked for
+nothing. All four sound identical from the outside, which is why they are written down.
 
 A post ttdl has not measured — an archive the command was never run over, a post with no
 soundtrack, a download that was cut short — plays exactly as it did before any of this existed.
@@ -478,6 +480,9 @@ what it refuses to wave through.
   `liked: null` and `sort=liked` puts them all last. Profile archives have it by design. A post
   sitting in both lists keeps its like date, since that is the list it primarily belongs to. The
   export is also a snapshot — it stops at the day you requested it.
+- **AirPlay against an amplified post is untested.** A boosted element plays through a WebAudio
+  graph, and what an AirPlay target receives from one — the element's own audio, or the graph's —
+  was never checked. `?boost=0` turns the graph off if it turns out to matter.
 - **No authentication.** Anything that can reach the port can read every archive. Keep it on
   loopback, a VPN, or a trusted LAN.
 - **The Docker and Synology instructions above have not been run.** They are written from the
