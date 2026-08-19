@@ -330,13 +330,42 @@ on both scrollers stops a fling from chaining into the page behind it.
 
 **The stage.** Post chrome — caption, action rail, position readout, scrubber, carousel segments
 and counter — is positioned against the *media box*, not the viewport. `--stage-w` is
-`min(100dvw, calc(100dvh * var(--stage-ar)))`, which reproduces exactly how `.media` sizes itself
-(`height: 100%; width: auto; max-width: 100%`), so the stage is always the rendered width of the
-media. `--stage-ar` carries the active post's aspect ratio, falling back to `9 / 16` for carousels,
-whose media is an audio track. At phone size the viewport cap wins and the stage *is* the viewport,
-so nothing moves; in a desktop window the chrome tracks the centered media column instead of
-stranding itself against the window edges. The stage tracks width only: chrome stays pinned to the
-bottom of the viewport, as it is in the app this imitates.
+`min(calc(100dvw - 2 * var(--gutter)), calc(100dvh * var(--stage-ratio)))` and `--stage-h` the same
+min the other way round, which is exactly what `object-fit: contain` resolves to, so the stage is
+always the rendered size of the media. `--stage-ratio` carries the active post's aspect ratio as a
+bare number, falling back to `0.5625` for carousels, whose media is an audio track. Both are stated
+as a width and a height wherever a box has to match the picture: derived instead from
+`aspect-ratio` between `top: 0` and `bottom: 0`, the two agree only while the picture is the full
+height of the slide, and part company the moment a cap decides the width — the ratio recomputes the
+height, `bottom` is dropped as over-constrained, and the box hangs from the top of a slide whose
+picture is centred well below it.
+
+The overlay layer that carries the caption, the rail and the position readout takes its width from
+the stage and its height from the window: the stage tracks width only, so on a portrait post that
+chrome stays pinned to the bottom of the viewport, as it is in the app this imitates.
+
+**The theatre.** Past `1024px` the interface leaves the picture. A portrait post in a landscape
+window is a column of media with a third of the screen of black either side of it, and the room is
+already there: `--gutter` reserves a symmetric column on both sides — `--card-col` plus the gap plus
+a window margin — which the slide gives up as `padding-inline`, so the reserved space is guaranteed
+empty rather than merely likely to be. Reserving it symmetrically is what keeps the picture on the
+window's centre line. The caption moves into the left column with its right edge one `--stage-gap`
+off the picture, the rail into the right column the same distance the other way, and both rest on
+`--stage-foot` — the foot of the *picture*, which is the foot of the window on a portrait post and
+is not on a landscape one. Back, mute and raw metadata become window chrome at the window's corners
+and drop the gradient that existed to keep them legible over a frame no longer under them; the
+caption's scrim goes with it. What is left on the picture is what is part of the picture: the
+scrubber on its bottom edge, the carousel's segments on its top, and the one-time gesture hint,
+which teaches a gesture performed on the media.
+
+The gutter is a `margin` on the slide rather than `padding`, because padding is still part of the
+box that hears the pointer: reserved as padding, the columns went on answering a click with
+play/pause several hundred pixels from the post they were pausing, and wore a hand cursor while
+doing it. Outside the box, the black beside the picture is what it looks like. The caption and the
+rail take the pointer here for the same reason in reverse — over the media they must stay
+transparent or they become dead strips on the post, and beside it there is nothing behind them to
+let through, so each can finally state its own cursor: `text` on the one paragraph worth selecting,
+`default` on everything that only reports.
 
 **Post tiles** are a hard `9 / 16` aspect ratio, gapped by `2px` (`--tile-gap`) — nearly touching,
 so the grid reads as contact sheet rather than as cards.
@@ -345,11 +374,14 @@ so the grid reads as contact sheet rather than as cards.
 Only two of these are CSS variables (`--tile-gap: 2px`, `--rail-gap: 20px`); the rest is observed
 convention held consistently across components, not a tokenized scale.
 
-**Responsive.** One breakpoint exists in the entire system: `max-width: 520px`, which tightens the
-action rail (`20px` → `10px` right offset, `18px` → `15px` gap) and the caption (`16px` → `12px`
-left, `84px` → `68px` right). Everything else adapts fluidly. The library needs no breakpoint
-because `auto-fill` handles it; the feed needs none because the stage is content-driven — it is
-derived from the media's own aspect ratio rather than from a device size.
+**Responsive.** Two breakpoints exist in the entire system, both on the feed. `max-width: 520px`
+tightens the action rail (`20px` → `10px` right offset, `18px` → `15px` gap) and the caption
+(`16px` → `12px` left, `84px` → `68px` right). `min-width: 1024px` is the theatre above. The second
+is width alone, deliberately: what decides it is whether there is black to move into, and a touch
+tablet held in landscape has exactly as much of it as a laptop does. Everything else adapts fluidly
+— the library needs no breakpoint because `auto-fill` handles it, and between the two the feed
+needs none because the stage is content-driven, derived from the media's own aspect ratio rather
+than from a device size.
 
 ### Named Rules
 
@@ -357,8 +389,13 @@ derived from the media's own aspect ratio rather than from a device size.
 is a first-class target and collapsing browser chrome would otherwise break scroll-snap alignment.
 
 **The Stage Rule.** Anything that annotates a post positions against `--stage-w`, never against the
-viewport. If a control describes the media, it belongs on the media; only window chrome (the
-metadata drawer) is allowed to hang off the window edge.
+viewport — beside the picture where there is room for it, on the picture where there is not.
+Belonging to the post and being drawn on top of it are two different things, and only the second is
+a phone's compromise: below the theatre breakpoint the chrome lies over the media because there is
+nowhere else, and above it the same chrome stands in the black at the picture's own edge. What
+stays on the media at every width is what is part of the frame — the scrubber, the carousel
+segments — and what is genuinely the window's, the metadata drawer and the back, mute and raw
+buttons in the theatre, hangs off the window edge.
 
 ## Elevation & Depth
 
@@ -522,16 +559,22 @@ is no preview at all, which is the honest answer — there is no shorter version
 
 A vertical stack at `--rail-gap` from the right edge, `0.88` opacity, white, with a drop-shadow
 standing in for a background. Avatar, then counts, then the spinning `44px` music disc (`6s` linear,
-paused with playback, disabled under reduced motion).
+paused with playback, disabled under reduced motion). In the theatre it is the same column one
+`--stage-gap` to the right of the picture, and it drops both the drop-shadow and the held-back
+opacity there — each was buying legibility over an unpredictable frame, and there is no frame under
+it any more.
 
 **The Readout Rule.** The rail is a readout, not a control strip. Its items have `cursor: default`,
 no hover state, no focus state, and no press state, because nothing in an archive can be liked or
 commented on — and they sit one step down the text ramp, at `72%`, so the column reads as captured
 data rather than as buttons nobody can press. The one exception is the author's avatar, which is
-genuinely interactive: it opens everything that author left in this archive. Anything a viewer can
-*do* with a post — copy its address, open it at the source — is a labelled row in the long-press
-sheet, where an action can be read before it is chosen, instead of a lone glyph in a column of
-things that only report.
+genuinely interactive: it opens everything that author left in this archive. The caption's handle is
+the same offer on the other side of the picture — a name in a caption is the one label here that
+every viewer already expects to follow — and the two read their address and their label from one
+place (`feed/author.ts`), because a label describing a slightly different destination than the
+control beside it is worse than no label. Anything else a viewer can *do* with a post — copy its
+address, open it at the source — is a labelled row in the long-press sheet, where an action can be
+read before it is chosen, instead of a lone glyph in a column of things that only report.
 
 ### First-Run Hint
 

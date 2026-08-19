@@ -3,6 +3,36 @@
 	height: 100dvh;
 	overflow: hidden;
 	background: #000;
+
+	/*
+	 * The geometry of the stage, declared once and read by everything placed against it.
+	 *
+	 * At phone width the picture is the window: no room is reserved beside it, so `--gutter` is
+	 * zero, `--stage-w` collapses to the viewport, and every offset below resolves to the value it
+	 * has always had. Nothing about a phone changes.
+	 *
+	 * On a desktop window the picture is a portrait column with several hundred pixels of black
+	 * either side of it, and that black is where the interface goes — see the theatre block near
+	 * the foot of this file. `--gutter` is what the slide gives up on both sides so the reserved
+	 * columns are guaranteed to exist; reserving it symmetrically is what keeps the picture on the
+	 * window's centre line rather than shunting it toward the rail.
+	 *
+	 * `--stage-w` is the rendered width of the media, by the same min(available, height × ratio)
+	 * that `object-fit: contain` arrives at, so a control positioned from it lands on the picture's
+	 * own edge rather than near it. `--stage` carries the active post's ratio.
+	 */
+	--stage-gap: 0px;
+	--card-col: 0px;
+	--gutter: 0px;
+	/*
+	 * The ratio as a bare number, separately from the `aspect-ratio` values that read `--stage`
+	 * directly. Those can take the `9 / 16` fallback literally; a division cannot — substituted into
+	 * `calc(x / var(--stage, 9 / 16))` it becomes `x / 9 / 16`, which is a hundred and forty-fourth
+	 * of the answer and fails silently on exactly the posts that have no metadata to state a ratio.
+	 */
+	--stage-ratio: var(--stage, 0.5625);
+	--stage-w: min(calc(100dvw - 2 * var(--gutter)), calc(100dvh * var(--stage-ratio)));
+	--stage-h: min(100dvh, calc((100dvw - 2 * var(--gutter)) / var(--stage-ratio)));
 }
 
 /*
@@ -82,8 +112,14 @@
 	bottom: 0;
 	left: 50%;
 	transform: translateX(-50%);
-	aspect-ratio: var(--stage, 9 / 16);
-	max-width: 100%;
+	/*
+	 * Width from the stage, height from the window — the stage tracks width only, and this chrome
+	 * stays on the bottom edge of the screen the way it does in the app this imitates. Taking the
+	 * height from `aspect-ratio` as well looked equivalent and was not: on a post wide enough for
+	 * the width to be capped, the ratio recomputed the height, `bottom` was dropped, and the caption
+	 * hung two thirds of the way up the window.
+	 */
+	width: var(--stage-w);
 	/*
 	 * Transparent by default, and nothing here hands that back wholesale.
 	 *
@@ -367,6 +403,71 @@
 	padding: 20px 16px;
 	color: var(--text-3);
 	font-size: 13px;
+}
+
+/*
+ * The theatre: on a desktop window, nothing is drawn on the picture.
+ *
+ * A portrait post in a landscape window is a column of media with a third of the screen of black on
+ * either side of it, and until now the caption and the rail were laid over the picture anyway —
+ * copying, at 1440px, a composition that only exists because a phone has nowhere else to put them.
+ * The room is already there, so the equipment moves off the print and into it: the catalogue card
+ * to the left of the frame, the readout to the right, both resting on the picture's own bottom
+ * edge, and the window's own controls out at the window's corners where they belong.
+ *
+ * The breakpoint is width alone. What decides this is whether there is black to move into, and a
+ * touch tablet held in landscape has exactly as much of it as a laptop does.
+ */
+@media (min-width: 1024px) {
+	.wrap {
+		--stage-gap: 28px;
+		--card-col: clamp(220px, 17vw, 300px);
+		/* The column, the gap to the picture, and a margin so the card never touches the window. */
+		--gutter: calc(var(--card-col) + var(--stage-gap) + 24px);
+		/*
+		 * The line the two columns rest on: the foot of the picture, not the foot of the window.
+		 *
+		 * The two are the same thing for a portrait post, which is nearly all of them, and they part
+		 * company on a landscape one — where the picture is centred in the window and the columns
+		 * would otherwise hang a hundred pixels below it in the black, describing a post that ends
+		 * well above them.
+		 */
+		--stage-foot: calc((100dvh - var(--stage-h)) / 2 + 28px);
+	}
+
+	/*
+	 * The overlay layer stops being the picture and becomes the window.
+	 *
+	 * Everything inside it now places itself either against a window edge or against `--stage-w`,
+	 * so the box no longer has a shape of its own to give them.
+	 */
+	.overlays {
+		left: 0;
+		right: 0;
+		width: auto;
+		transform: none;
+	}
+
+	/*
+	 * Back, mute and raw metadata are the window's controls, not the post's — so they sit in the
+	 * window's corners. The gradient goes with them: it existed to keep them legible over a bright
+	 * frame, and there is no frame under them any more.
+	 */
+	.chrome,
+	.chrome[data-kind="carousel"] {
+		padding: 20px 20px 0;
+		background: none;
+	}
+
+	.position {
+		top: 68px;
+		right: 20px;
+	}
+
+	/* Nothing left to protect: the caption is off the media. */
+	.scrim {
+		display: none;
+	}
 }
 
 /*

@@ -50,6 +50,25 @@ export function date(unix: number): string {
 	return `${MONTHS[at.getMonth()]} ${at.getDate()}, ${at.getFullYear()}`;
 }
 
+/**
+ * "Aug 14, 2026 at 20:27:37" — the whole instant, for a tooltip on a date that shows only the day.
+ *
+ * The time of day is real on every post in every archive, which is not obvious and is the reason
+ * this is worth offering. ttdl names files with a date and no clock, so the seconds look like they
+ * should be a midnight the indexer invented — they are not: the upper 32 bits of a post id are Unix
+ * seconds, and the indexer takes the time of day from there whenever metadata is absent. The number
+ * behind this string is always a second TikTok recorded, whether it arrived from `createTime` or
+ * from the id.
+ *
+ * A 24-hour clock and no timezone, to agree with `date()` above: both render the viewer's local
+ * time, and this one has to name the same day the line under the pointer does.
+ */
+export function dateTime(unix: number): string {
+	const at = new Date(unix * 1000);
+	const pad = (value: number) => String(value).padStart(2, "0");
+	return `${date(unix)} at ${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`;
+}
+
 /** "Mar 2021" — for a date range in an archive header. */
 export function monthYear(unix: number): string {
 	const at = new Date(unix * 1000);

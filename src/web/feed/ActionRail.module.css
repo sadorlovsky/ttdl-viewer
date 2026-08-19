@@ -119,3 +119,35 @@
 		gap: 15px;
 	}
 }
+
+/*
+ * The readout, stood beside the picture rather than on it.
+ *
+ * Same column, same order, same baseline as the caption opposite it — only now in the black to the
+ * right of the frame, one gap off the media's own edge. Two things it drops there: the drop-shadow,
+ * which was standing in for a background it needed over video and does nothing over black, and the
+ * 0.88 opacity, which was holding the glyphs back from competing with the frame they sat on.
+ */
+@media (min-width: 1024px) {
+	.rail {
+		right: auto;
+		left: calc(50% + var(--stage-w) / 2 + var(--stage-gap));
+		bottom: var(--stage-foot);
+		gap: 20px;
+		opacity: 1;
+		filter: none;
+		/*
+		 * The column takes the pointer here, which is what finally makes `.item`'s `cursor: default`
+		 * mean something. On the media the rail has to stay transparent or it becomes a dead strip
+		 * down the side of every post; beside the media there is nothing behind it to let through,
+		 * and staying transparent only borrowed the slide's `pointer` for four counts that cannot be
+		 * pressed.
+		 */
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.glyph {
+		pointer-events: auto;
+	}
+}

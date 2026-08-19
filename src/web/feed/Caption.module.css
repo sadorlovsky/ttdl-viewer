@@ -19,6 +19,25 @@
 	font-weight: 600;
 }
 
+/*
+ * The handle, as a control.
+ *
+ * It borrows nothing to say so — no colour, no underline at rest. The accent is spent on state and
+ * the secondary cyan already carries hashtags, and a name in a caption is the one label in this
+ * interface that every viewer already expects to be able to follow. What it does take is the
+ * cursor, an underline under a pointer, and the focus ring every other control here inherits.
+ */
+.author {
+	/* `.caption` lets the gesture through to the post; this is one of the few things in it that
+	   answer for themselves. */
+	pointer-events: auto;
+}
+
+.author:hover {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
 .date {
 	color: var(--text-2);
 	font-size: 11.5px;
@@ -88,10 +107,27 @@
 	 * too, all the time. The padding buys a thumb-sized target without touching the line box.
 	 */
 	color: var(--accent-2);
-	padding: 3px 0;
-	margin: -3px 0;
+	position: relative;
 	font-weight: 500;
 	transition: color var(--dur-fast) var(--ease);
+}
+
+/*
+ * The thumb-sized target, drawn beside the line rather than added to it.
+ *
+ * Vertical padding on the button itself did buy the target, and it also pushed the button's box
+ * three pixels out of the caption's clamped box — invisible, because the clamp hides the overflow,
+ * and decisive, because "is this caption cut off?" is answered by asking that box whether anything
+ * overflows it. It always did. A pseudo-element takes no part in the line box at all, so the target
+ * is the same size and the paragraph's answer becomes about the words.
+ *
+ * `display: inline` would have been the shorter fix and is not available: browsers coerce it back
+ * to `inline-block` on a button.
+ */
+.tag::before {
+	content: "";
+	position: absolute;
+	inset: -6px 0;
 }
 
 .tag:hover {
@@ -152,17 +188,44 @@
 
 .warn {
 	display: flex;
-	align-items: center;
+	/* The glyph marks the first line of the sentence, not the middle of however many it wraps to. */
+	align-items: flex-start;
 	gap: 6px;
 	margin-top: 8px;
 	color: var(--warn);
 	font-size: 11.5px;
 }
 
+.warn svg {
+	flex: none;
+	/* Optically on the first line's centre rather than its top edge. */
+	margin-top: 1px;
+}
+
 .warn code {
 	font-family: var(--font-mono);
 	font-size: 11px;
-	opacity: 0.9;
+	/* A command is one token. If a column ever is narrow enough to wrap this line, it breaks before
+	   the command or after it, never through it. */
+	white-space: nowrap;
+}
+
+/*
+ * The three lines that carry a tooltip, made reachable by the thing that can ask for one.
+ *
+ * A `title` needs its element to be hit-testable, and wherever the caption lies over the post it is
+ * deliberately transparent so the media underneath keeps play/pause. The result was three tooltips
+ * that had never once appeared. Gated on the pointer rather than on width: a tooltip is a
+ * pointer-only affordance, so a pointer is the only thing that should cost the post this much of
+ * its gesture surface — three short spans' worth. Above the theatre breakpoint the caption is off
+ * the media and already takes the pointer; this is what covers the desktop windows below it.
+ */
+@media (hover: hover) and (pointer: fine) {
+	.date,
+	.inferred,
+	.saved {
+		pointer-events: auto;
+	}
 }
 
 @media (max-width: 520px) {
@@ -170,5 +233,53 @@
 		left: 12px;
 		right: 68px;
 		max-width: 78%;
+	}
+}
+
+/*
+ * The catalogue card, pinned beside the print.
+ *
+ * On a desktop window the caption leaves the picture entirely and takes the black column to its
+ * left, right edge held one gap off the media's own edge so it reads as belonging to this post
+ * rather than to the window. It keeps the bottom it has always had, which is also where the rail
+ * rests — the two columns and the foot of the frame share one baseline.
+ *
+ * Two things it stops needing there: the text shadow, which existed to survive a bright frame
+ * underneath, and the two-line clamp, which existed because those two lines sat on the post. Six
+ * lines of a wider column is most of what this archive's captions actually are.
+ */
+@media (min-width: 1024px) {
+	.caption {
+		left: auto;
+		right: calc(50% + var(--stage-w) / 2 + var(--stage-gap));
+		bottom: var(--stage-foot);
+		width: var(--card-col);
+		max-width: none;
+		text-shadow: none;
+	}
+
+	/*
+	 * It takes the pointer here, and says with the cursor what it is.
+	 *
+	 * Below this width the caption lies over the media and is deliberately transparent: a patch of
+	 * the post that had stopped answering play/pause would be worse than a caption you cannot
+	 * hover. Beside the media there is no post underneath it to reach, and staying transparent only
+	 * meant the slide behind it lent every line its own `pointer` — a hand cursor over a date.
+	 */
+	.caption {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	/* A narrow column, so the date drops under the handle instead of running off the end of it. */
+	.handle {
+		flex-wrap: wrap;
+		row-gap: 2px;
+	}
+
+	.text {
+		-webkit-line-clamp: 6;
+		/* The one part of the caption worth selecting, and now the only part that says so. */
+		cursor: text;
 	}
 }

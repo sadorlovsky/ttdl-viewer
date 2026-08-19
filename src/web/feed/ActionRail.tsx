@@ -1,11 +1,11 @@
 import { useLocation } from "wouter";
-import { serializeQuery } from "../../shared/filters.ts";
 import type { Post } from "../../shared/types.ts";
 import { Avatar } from "../components/Avatar.tsx";
 import { BookmarkIcon, CommentIcon, HeartIcon, ShareIcon } from "../components/Icons.tsx";
 import { PressButton } from "../components/PressButton.tsx";
 import { count } from "../lib/format.ts";
 import styles from "./ActionRail.module.css";
+import { authorHref, authorLabel } from "./author.ts";
 
 interface ActionRailProps {
 	post: Post;
@@ -45,21 +45,18 @@ export function ActionRail({ post, paused }: ActionRailProps) {
 		{ key: "shares", icon: <ShareIcon size={29} />, value: post.stats.shares, noun: "shares" },
 	];
 
-	// The one identity in the column, and the one thing in it that names something the archive can
-	// still show you: everything this author left in it. An author with no metadata has an empty
-	// handle, which the query model carries as a hyphen — so that chip works here too.
-	const authorLabel = post.author.handle
-		? `Show everything by @${post.author.handle} in this archive`
-		: "Show everything with no author in this archive";
-
 	return (
 		<div className={styles.rail}>
+			{/*
+			 * The one identity in the column, and the one thing in it that names something the archive
+			 * can still show you: everything this author left in it. The caption's handle is the same
+			 * offer on the other side of the picture, and reads its address and its label from the
+			 * same place — see `author.ts`.
+			 */}
 			<PressButton
 				className={styles.avatarSlot}
-				aria-label={authorLabel}
-				onPress={() =>
-					navigate(`/a/${post.archiveId}?${serializeQuery({ author: [post.author.handle] })}`)
-				}
+				aria-label={authorLabel(post)}
+				onPress={() => navigate(authorHref(post))}
 			>
 				<Avatar seed={post.author.avatar} src={post.author.avatarUrl} size={46} />
 			</PressButton>

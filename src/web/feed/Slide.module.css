@@ -1,6 +1,5 @@
 .slide {
 	position: relative;
-	width: 100%;
 	height: 100%;
 	overflow: hidden;
 	background: #000;
@@ -16,7 +15,12 @@
 	 */
 	grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 	place-items: center;
-	cursor: pointer;
+	/*
+	 * No cursor of its own. This box is the post's gesture surface and it is also, on a desktop
+	 * window, most of the screen — so a `pointer` here was a `pointer` over the caption, over the
+	 * readout, over the black beside the picture and over the window chrome, on a screen where one
+	 * thing is actually being pointed at. The picture inside carries it instead.
+	 */
 	/*
 	 * The feed still scrolls; nothing else is the browser's.
 	 *
@@ -28,6 +32,19 @@
 	 * wait is pure latency.
 	 */
 	touch-action: pan-y;
+	/*
+	 * The room the interface is given beside the picture, taken off the picture's own box.
+	 *
+	 * Zero at phone width. On a desktop window `object-fit: contain` then sizes the media inside
+	 * what is left, so the reserved columns are guaranteed to be empty rather than merely likely to
+	 * be — a very wide post cannot grow into the space the caption is standing in.
+	 *
+	 * Margin rather than padding, because padding is still part of the box that hears the pointer:
+	 * the reserved columns would have gone on answering a click with play/pause, several hundred
+	 * pixels away from the post they were pausing. Outside the box, the black beside the picture is
+	 * what it looks like — the room the interface stands in, not a control.
+	 */
+	margin-inline: var(--gutter, 0px);
 }
 
 /*
@@ -47,13 +64,10 @@
 	position: absolute;
 	top: 0;
 	left: 50%;
-	/* Height first, then the ratio. On a replaced element `top`/`bottom` do not pin the box the way
-	   they do on the stack's div: the ratio resolved against the width instead and produced a blur
-	   three times the height of the window. */
+	/* Full height and exactly the picture's width, so the blur fills the bands a letterboxed post
+	   leaves above and below it and stops at the edge of the black beside it. */
 	height: 100%;
-	width: auto;
-	aspect-ratio: var(--stage, 9 / 16);
-	max-width: 100%;
+	width: var(--stage-w);
 	object-fit: cover;
 	filter: blur(48px) brightness(0.35);
 	/* Overscanned so the blur samples picture at the edges rather than fading into nothing. */
@@ -115,12 +129,22 @@
  */
 .stack {
 	position: absolute;
-	top: 0;
-	bottom: 0;
+	/*
+	 * Stated as a width and a height rather than derived from `aspect-ratio` between `top` and
+	 * `bottom`.
+	 *
+	 * Both routes agree while the picture is the full height of the slide. They stop agreeing the
+	 * moment a cap decides the width instead — a landscape post, or any post once the columns beside
+	 * the picture take their room — because the ratio then recomputes the height, `bottom` is
+	 * dropped as over-constrained, and the box hangs from the top of the slide while the picture it
+	 * is meant to be sits centred a hundred and thirty pixels below. `--stage-w` and `--stage-h` are
+	 * the same min() the picture itself resolves to, so there is nothing left to disagree about.
+	 */
+	top: calc((100% - var(--stage-h)) / 2);
 	left: 50%;
+	width: var(--stage-w);
+	height: var(--stage-h);
 	transform: translateX(-50%);
-	aspect-ratio: var(--stage, 9 / 16);
-	max-width: 100%;
 	/* The pan scales the picture past its own box; without this it spills over the neighbouring
 	   chrome instead of being cropped by the frame it is composed in. */
 	overflow: hidden;
@@ -190,7 +214,13 @@
  */
 .emptyStage {
 	position: absolute;
-	inset: 0;
+	/* The picture's box, not the slide's: on a desktop window `inset: 0` painted this gradient
+	   across the whole screen while the post it stands in for is a column in the middle of it. */
+	top: calc((100% - var(--stage-h)) / 2);
+	left: 50%;
+	width: var(--stage-w);
+	height: var(--stage-h);
+	transform: translateX(-50%);
 	display: grid;
 	place-items: center;
 	background: linear-gradient(150deg, var(--surface-3), var(--surface));
@@ -265,12 +295,11 @@
  */
 .frame {
 	position: absolute;
-	top: 0;
-	bottom: 0;
+	top: calc((100% - var(--stage-h)) / 2);
 	left: 50%;
+	width: var(--stage-w);
+	height: var(--stage-h);
 	transform: translateX(-50%);
-	aspect-ratio: var(--stage, 9 / 16);
-	max-width: 100%;
 	z-index: var(--z-rail);
 	pointer-events: none;
 }
@@ -398,8 +427,36 @@
  */
 .brokenOver {
 	position: absolute;
-	inset: 0;
+	/* Bound to the picture for the same reason `.emptyStage` is: it stands in for this post, and
+	   this post is not the whole window. */
+	top: calc((100% - var(--stage-h)) / 2);
+	left: 50%;
+	width: var(--stage-w);
+	height: var(--stage-h);
+	transform: translateX(-50%);
 	align-content: center;
 	background: rgb(0 0 0 / 0.92);
 	backdrop-filter: blur(12px);
+}
+
+/*
+ * Beside the picture on a desktop window, like everything else that annotates a post.
+ *
+ * "3 / 7" is a fact about the frame, so it stays with the frame — moved just clear of its top-right
+ * corner rather than out to the window, where the position readout already says which post you are
+ * on and two counters in one corner would be read as one. Over black it needs neither the blurred
+ * pill nor the white it was using to survive an unpredictable image, so it takes the same weight
+ * the position readout has.
+ */
+@media (min-width: 1024px) {
+	.counter {
+		top: 24px;
+		right: auto;
+		left: calc(100% + var(--stage-gap));
+		padding: 0;
+		background: none;
+		color: var(--text-3);
+		backdrop-filter: none;
+		white-space: nowrap;
+	}
 }
