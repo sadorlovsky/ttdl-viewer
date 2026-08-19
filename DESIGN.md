@@ -185,7 +185,7 @@ marking a different *category* of thing rather than a different state.
 Everything about the equipment is soft-touch and media-first. Controls are pills and circles with
 finger-sized targets, they recede to a hairline border at rest, and they transition in 120ms — fast
 enough to feel handled rather than clicked. Nothing borrowed from the source platform appears
-anywhere: avatars are generated from the handle's hue, every glyph is drawn from scratch, and there
+anywhere: avatars are generated from the handle's seed, every glyph is drawn from scratch, and there
 is no wordmark, because a single remote reference would break the offline guarantee this product
 is built on.
 
@@ -415,7 +415,9 @@ legible over an unpredictable frame without dimming the frame itself.
 Shadows exist in only three roles, all of them legibility over media rather than elevation:
 a text shadow on anything sitting on video, a drop-shadow on the action rail and play badge, and a
 small cast shadow on the scrubber knob so it stays visible against a bright frame. One inset ring
-(`inset 0 0 0 1px rgb(255 255 255 / 0.08)`) gives the generated avatar an edge.
+(`inset 0 0 0 1px rgb(255 255 255 / 0.08)`) gives the generated avatar an edge, and a second inset
+along its bottom (`0 -0.47em 0.84em -0.42em`, in em so it holds at 20px as well as at 96) is the
+falloff of the print rather than a shadow the circle casts.
 
 ### Shadow Vocabulary
 
@@ -555,11 +557,35 @@ grid that makes noise because a pointer crossed it is not a setting anybody chos
 is muted independently of the player's own mute state. Under `prefers-reduced-motion: reduce` there
 is no preview at all, which is the honest answer — there is no shorter version of a video to offer.
 
+### Generated Avatar
+
+ttdl never downloads a profile picture, so there is nothing to show and the mark says so rather than
+pretending otherwise: it is a swatch of exposed film with a letter on it, not a portrait standing in
+for one. Three layers, all derived from the handle's seed — a flat duotone body in the seed's hue
+(`hsl(h 42% 27%)` → `hsl(h+20 38% 12%)`) that says which person this is; an exposure falling from
+one corner (`radial-gradient(86% 78% at 30% 16%)`) that gives the mark a light direction, so it
+reads as photographed rather than filled; and film grain blended `overlay` over both.
+
+The grain is one inline `feTurbulence` tile every avatar on the page names, so the browser
+rasterises it once however many are on screen, and it is sized in pixels (`80px`) rather than em on
+purpose — grain is a property of the stock and does not scale with the print. It is inline for the
+same reason everything else here is: a request for it would be a request.
+
+The letter is near-white with a trace of the hue (`hsl(h 30% 96%)`). The colour is the ground's job.
+
+**The one-hover rule.** `--avatar-ring` is the edge's opacity, and only the one place this mark is a
+control raises it — the rail's avatar, to `0.45`, with a `1.06` scale. Everywhere else the avatar is
+a label on a chip, a header or a row, and an edge that answered a pointer there would be a hover
+state on something nobody can press.
+
 ### Action Rail (signature)
 
 A vertical stack at `--rail-gap` from the right edge, `0.88` opacity, white, with a drop-shadow
 standing in for a background. Avatar, then counts, then the spinning `44px` music disc (`6s` linear,
-paused with playback, disabled under reduced motion). In the theatre it is the same column one
+paused with playback, disabled under reduced motion). The avatar is the only thing in the column
+that answers a pointer, and that contrast is most of how a viewer learns which of the two kinds of
+thing they are looking at: it strengthens its edge and lifts by `1.06`, borrowing the hover language
+a card uses rather than inventing one for a circle. In the theatre it is the same column one
 `--stage-gap` to the right of the picture, and it drops both the drop-shadow and the held-back
 opacity there — each was buying legibility over an unpredictable frame, and there is no frame under
 it any more.

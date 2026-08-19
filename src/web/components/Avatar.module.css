@@ -8,11 +8,53 @@
 	font-weight: 600;
 	line-height: 1;
 	user-select: none;
-	color: hsl(var(--h) 70% 92%);
-	/* Two stops rather than a flat fill: at 48px a circle of solid colour reads as a placeholder,
-	   a gradient reads as an image. */
-	background: linear-gradient(145deg, hsl(var(--h) 58% 42%), hsl(calc(var(--h) + 35) 55% 26%));
-	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+	/* Nearly white, with just enough of the seed's hue left in it to belong to the ground below.
+	   The colour is the ground's job; a letter competing for it makes both harder to read. */
+	color: hsl(var(--h) 30% 96%);
+	/*
+	 * The grain, as one tile every avatar on screen shares.
+	 *
+	 * Inline rather than a file, because it is four lines of SVG and a request for it would be a
+	 * request — the one thing this product does not make. Every avatar names the same URL, so the
+	 * browser rasterises it once however many are on the page, and it is sized in pixels rather
+	 * than ems on purpose: grain is a property of the stock, and does not scale with the print.
+	 */
+	--avatar-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23n)' opacity='0.9'/%3E%3C/svg%3E");
+	/*
+	 * A swatch of exposed stock, rather than a coloured disc with a letter on it.
+	 *
+	 * Three layers, and each is doing a job the flat gradient before it could not. A duotone body
+	 * in the seed's hue says which person this is. An exposure falling from one corner gives the
+	 * mark a light direction, so it reads as something photographed rather than filled. The grain
+	 * over both is what makes it emulsion instead of a placeholder — and it is the honest figure
+	 * for what this is: ttdl never downloads a profile picture, so this is not a portrait standing
+	 * in for one, it is a piece of film with a letter exposed onto it.
+	 */
+	background-image:
+		var(--avatar-grain),
+		radial-gradient(86% 78% at 30% 16%, hsl(var(--h) 56% 50%) 0%, transparent 72%),
+		linear-gradient(162deg, hsl(var(--h) 42% 27%), hsl(calc(var(--h) + 20) 38% 12%));
+	background-blend-mode: overlay, normal, normal;
+	background-size:
+		80px 80px,
+		cover,
+		cover;
+	/*
+	 * The edge is a variable so the one place this mark is a control can raise it.
+	 *
+	 * Most of the avatars in this product are labels — a chip, a header, a row — and an edge that
+	 * answered a pointer there would be a hover state on something you cannot press. The rail's is
+	 * the exception, so the strengthening lives with the button rather than here, and this stays the
+	 * resting value everywhere else.
+	 *
+	 * The second inset is the print's own falloff along the bottom. Stated in em, which tracks the
+	 * `size` prop through the font size set beside it, so it is the same fraction of the circle at
+	 * 20px as at 96.
+	 */
+	box-shadow:
+		inset 0 0 0 1px rgb(255 255 255 / var(--avatar-ring, 0.08)),
+		inset 0 -0.47em 0.84em -0.42em rgb(0 0 0 / 0.55);
+	transition: box-shadow var(--dur-fast) var(--ease);
 }
 
 /* Over the seeded circle, not instead of it: a picture that will not load leaves the letter

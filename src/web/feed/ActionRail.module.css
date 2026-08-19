@@ -30,12 +30,34 @@
  * system's focus ring rather than a border of its own.
  */
 .avatarSlot {
+	/* Grid rather than the button's own inline-block, so the box is the circle and nothing else —
+	   an inline baseline gap under it would put the hover ring off centre. */
+	display: grid;
 	margin-bottom: 2px;
 	padding: 0;
 	border: 0;
+	border-radius: 50%;
 	background: none;
 	pointer-events: auto;
 	cursor: pointer;
+	transition: transform var(--dur-fast) var(--ease);
+}
+
+/*
+ * The one hover state in the column, which is the point of it.
+ *
+ * Everything else here is a readout and says so by never answering a pointer; this answers, and
+ * that contrast is most of how a viewer learns which of the two kinds of thing they are looking at.
+ * It borrows the system's own hover language rather than inventing one — the hairline strengthens
+ * the way a card's does, and the lift is a scale because the shape is a circle.
+ */
+.avatarSlot:hover {
+	--avatar-ring: 0.45;
+	transform: scale(1.06);
+}
+
+.avatarSlot:active {
+	transform: scale(1);
 }
 
 /*
