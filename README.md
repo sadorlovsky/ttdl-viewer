@@ -145,25 +145,61 @@ bun run start                # the levels are simply even
 Running it against an archive the viewer already has open needs no restart: `loudness.json` is in
 the change probe, and `ttdl.py loudness` on a finished archive rewrites nothing else at all.
 
-**Only downwards.** A post asking to be made *louder* is left exactly as it is. That is not a
-judgement about quiet posts — `HTMLMediaElement.volume` is capped at 1, so a boost cannot be
-expressed without routing the element through a WebAudio graph, and that trade is bad here in
-three separate ways: the routing is a one-way door (an element accepts a
-`MediaElementAudioSourceNode` once and never gives it back), the graph is silent for as long as
-its `AudioContext` is suspended — which is the state a feed that opens muted by autoplay policy is
-in — and on iOS it moves the sound onto a path that obeys the ringer switch, which
-`<video playsinline>` does not. A feed that can go mute on a phone is not worth a few quiet posts
-made louder.
+### Down is a number, up is a graph
 
-What is left is the half that was the actual complaint. The loud posts are the ones that make you
-flinch, they are most of what TikTok serves, and pulling them down is also the half that cannot go
-wrong: attenuation cannot clip, so there is nothing to limit — no `DynamicsCompressor` smearing
-transients to pay for a rescue that was never needed. The viewer's own volume stays the outer
-term, so the slider still means what it says.
+Pulling a post down is one multiplication on `element.volume`, and it cannot go wrong —
+attenuation cannot clip, so there is nothing to limit and no `DynamicsCompressor` smearing
+transients to pay for a rescue that was never needed.
+
+Pushing a post up is not: `volume` is capped at 1, so the only way to amplify is to route the
+element through a WebAudio graph, and that costs. Routing is a one-way door — an element accepts
+a `MediaElementAudioSourceNode` once, never gives it back, and from then on its sound reaches the
+speakers only through the graph. A graph is silent for as long as its `AudioContext` is suspended,
+which is the state a feed that opens muted by autoplay policy is in. And on iOS it moves the sound
+onto a path that obeys the ringer switch, which `<video playsinline>` does not.
+
+That was worth refusing right up until the archives here were measured:
+
+| archive | integrated | true peak | gain | asks to be quieter | asks to be louder |
+|---|---|---|---|---|---|
+| lowtide (98 posts) | −22.2 LUFS | −6.9 dBTP | **+5.6** | 19 | 73 |
+| quietharbor (30 sampled) | −18.7 | −5.9 | **+4.4** | 4 | 26 |
+| mossbank (30 sampled) | −14.3 | −3.8 | +0.3 | 13 | 16 |
+| TikTok Saved (30 sampled) | −15.7 | −1.1 | +0.2 | 10 | 15 |
+
+Medians, against a −14 LUFS target. The median post asks to be made *louder*, the true-peak cap
+ttdl applies barely bites because these files are mastered with headroom, and every archive holds
+posts asking for more than +18 dB. Attenuation alone would have addressed a fifth of the problem
+on the archive that needed it most — so the graph is built, under rules that make it free when it
+cannot work:
+
+- **Nothing is routed until a gesture.** The context is created by the first touch on the feed (or
+  the speaker button, for a keyboard), because a context created inside a gesture may start
+  running and one created at any other moment starts suspended. Until then, posts wanting a boost
+  wait in a queue.
+- **Nothing is routed into a suspended context**, since an element routed into one is not quieter,
+  it is silent.
+- **Nothing is routed on iOS**, until somebody proves the ringer switch does not take the sound
+  away — see below.
+
+**Amplification stops at +12 dB.** ttdl caps its gain by the true peak and deliberately goes no
+further: a maximum boost, it says, is the consumer's policy rather than an archive's. This is the
+consumer. A post measured at −41 LUFS asks for +26 dB, and 26 dB below target on a phone recording
+is mostly the noise floor — amplifying it produces a loud hiss with a voice somewhere inside.
+
+### Answering the iOS question
+
+`?boost=1` forces the graph on whatever the platform, `?boost=0` forces it off. With `?debug=1`
+the panel prints what actually happened to the post on screen — `boost=7.2` once the gain is
+applied, `boost=wait` while the context is still asleep, `boost=off` where it is not allowed, `-`
+where the post asked for nothing. All four sound identical from the outside, which is why they are
+written down.
+
+So: open the feed on the phone at `…/feed/<post>?boost=1&debug=1`, turn the sound on, and flip the
+ringer switch. If the post keeps playing, the ban in `boostPermitted` is wrong and can go.
 
 A post ttdl has not measured — an archive the command was never run over, a post with no
 soundtrack, a download that was cut short — plays exactly as it did before any of this existed.
-`?debug=1` prints the applied volume, which is where a correction can be seen doing something.
 
 ## Running it in Docker
 

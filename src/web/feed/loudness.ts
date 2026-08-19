@@ -4,31 +4,63 @@
  * TikTok mixes wildly, so an archive played back in order is a volume knob you keep reaching for.
  * `ttdl.py loudness` measures every post to EBU R128 and records the decibels it would take to
  * bring each one to a common target; nothing is re-encoded, so applying it is the player's job or
- * nobody's. Here it is one multiplication on the element's `volume`.
+ * nobody's.
  *
- * **Only downwards.** A post that asks to be made louder is left exactly as it is, for a reason
- * that is not really a policy: `HTMLMediaElement.volume` is capped at 1, so a boost cannot be
- * expressed at all without routing the element through a WebAudio graph — and that is a bargain
- * worth refusing here. The routing is a one-way door (an element can be given a
- * `MediaElementAudioSourceNode` once, and never taken back), the graph is silent for as long as
- * its `AudioContext` is suspended, which is precisely the state a feed that opens muted by
- * autoplay policy is in, and on iOS it moves the sound onto a path that obeys the ringer switch
- * when `<video playsinline>` does not. Trading a feed that can go silent on a phone for a few
- * quiet posts made louder is not a trade this screen should make.
+ * It is applied in two quite different ways, because the two directions cost differently.
  *
- * What is left is the half that was actually the complaint. The loud posts are the ones that make
- * you flinch, they are the overwhelming majority of what TikTok serves — and pulling them down is
- * also the half that cannot go wrong: attenuation cannot clip, so there is nothing to limit, no
- * compressor smearing transients to pay for a rescue that was never needed.
+ * **Down is a multiplication.** `element.volume` scales what the viewer chose, nothing else is
+ * touched, and attenuation cannot clip — so there is nothing to limit, no `DynamicsCompressor`
+ * smearing transients to pay for a rescue that was never needed.
+ *
+ * **Up is a graph.** `volume` is capped at 1, so the only way to make a post louder is to route
+ * the element through WebAudio, and that is a real cost: routing an element is a one-way door (it
+ * accepts a `MediaElementAudioSourceNode` once and never gives it back, and the moment it has
+ * one, its sound reaches the speakers only through the graph), a graph is silent for as long as
+ * its `AudioContext` is suspended, and on iOS it moves the sound onto a path that obeys the
+ * ringer switch when `<video playsinline>` does not.
+ *
+ * That cost was worth refusing right up until the archives were measured, and then it was not.
+ * Over four of them — 98 posts measured whole, 30 sampled from each of the others — the median
+ * post asks to be made *louder*: +5.6 dB on one account, +4.4 on another, around 0 on the two
+ * balanced ones, and every single archive holds posts asking for more than +18. The true-peak cap
+ * ttdl applies barely bites, because these files are mastered with headroom (median true peak
+ * −4 to −7 dBTP). Attenuation alone would have addressed a fifth of the problem on the archive
+ * that needed it most.
+ *
+ * So the graph is built — but only where it cannot cost anything: never before a gesture has
+ * given the context a chance to run, never while the context is suspended (which would silence
+ * the post outright), and never on iOS unless it is asked for by hand. See `boostAllowed`.
  */
 
 import type { Post } from "../../shared/types.ts";
+
+/**
+ * The most this will amplify, whatever ttdl worked out.
+ *
+ * ttdl caps its gain by the true peak and deliberately stops there — a maximum boost, it says, is
+ * the consumer's policy rather than an archive's. This is the consumer. A post measured at −41
+ * LUFS asks for +26 dB, and what is 26 dB below the target on a phone recording is mostly the
+ * noise floor: amplifying it produces a loud hiss with a voice somewhere inside it, which is not
+ * the post played correctly. 12 dB covers every archive's median with room to spare and leaves
+ * the tail where it is.
+ */
+export const MAX_BOOST_DB = 12;
+
+/** Seconds for a gain change to settle. Long enough that no change is a click, short enough
+ * that no post starts at the wrong level. */
+const RAMP = 0.02;
+
+/** Amplitude multiplier for a level in decibels. */
+function amplitude(db: number): number {
+	return 10 ** (db / 20);
+}
 
 /**
  * The volume to play this post at, given the one the viewer chose.
  *
  * The viewer's setting stays the outer term: this scales what they asked for rather than
  * replacing it, so the slider still means what it says and the result is still within [0, 1].
+ * A post that wants to be louder is left at the chosen volume and handled by the graph below.
  */
 export function playbackVolume(post: Post, volume: number): number {
 	const gain = post.loudnessGain;
@@ -37,5 +69,183 @@ export function playbackVolume(post: Post, volume: number): number {
 	if (gain === null || gain >= 0) {
 		return volume;
 	}
-	return volume * 10 ** (gain / 20);
+	return volume * amplitude(gain);
+}
+
+/** The decibels of amplification this post asks for, after the ceiling. 0 means "nothing to do". */
+export function boostFor(post: Post): number {
+	const gain = post.loudnessGain;
+	return gain === null || gain <= 0 ? 0 : Math.min(gain, MAX_BOOST_DB);
+}
+
+/**
+ * Whether the graph may be built at all, given what the browser says about itself.
+ *
+ * The ban is iOS, where a routed element's sound obeys the ringer switch and an unrouted one does
+ * not — a feed that goes mute because a hardware switch is flipped is worse than a few quiet
+ * posts staying quiet. iPadOS has reported itself as a Mac since version 13, so the touch points
+ * are what give it away.
+ *
+ * `?boost=1` forces it on and `?boost=0` off, which is how that ban gets tested rather than
+ * assumed: open the feed on the phone with `?boost=1&debug=1`, turn the sound on, and flip the
+ * switch. If the post keeps playing, the ban is wrong and can go.
+ *
+ * Pure, and takes what it reads: the same decision has to be checkable without a browser to run
+ * it in.
+ */
+export function boostPermitted(search: string, platform: string, touchPoints: number): boolean {
+	const flag = new URLSearchParams(search).get("boost");
+	if (flag === "1" || flag === "0") {
+		return flag === "1";
+	}
+	return !(/iP(hone|ad|od)/.test(platform) || (platform === "MacIntel" && touchPoints > 1));
+}
+
+/**
+ * The same answer, asked of this browser once and then kept.
+ *
+ * Not at import: a module that reads the URL merely because it was loaded cannot be loaded
+ * anywhere else, and there is nothing to decide until a post actually asks to be amplified. That
+ * first question comes from a slide's effect, which runs before the feed rewrites its own URL
+ * from the filter — so the flag is still there to read.
+ */
+let allowed: boolean | null = null;
+
+export function boostAllowed(): boolean {
+	if (allowed === null) {
+		const { platform, maxTouchPoints } = window.navigator;
+		allowed = boostPermitted(window.location.search, platform, maxTouchPoints);
+	}
+	return allowed;
+}
+
+/**
+ * The one context. Created lazily, because creating one before it is wanted is how a page ends up
+ * holding an audio session it never uses — and because the first chance it has of starting in the
+ * running state is inside the gesture that turns the sound on.
+ */
+let ctx: AudioContext | null = null;
+
+/**
+ * The gain node an element was given, if it was given one.
+ *
+ * Keyed on the element and never removed while the element lives: a second
+ * `createMediaElementSource` for the same element throws, so this is the only record that one was
+ * already made. Weak, so a slide that has swiped away takes its entry with it.
+ */
+const graphs = new WeakMap<HTMLMediaElement, GainNode>();
+
+/**
+ * Elements that want a boost the context could not give them yet.
+ *
+ * Strong on purpose, and emptied by the teardown every caller is handed: a suspended context is
+ * the normal state before the first gesture, and without somewhere to wait, a post visible at
+ * that moment would never be boosted at all — its effect has already run and has nothing to
+ * re-run for.
+ */
+const waiting = new Map<HTMLMediaElement, number>();
+
+function flush(): void {
+	if (ctx?.state !== "running") {
+		return;
+	}
+	for (const [element, db] of waiting) {
+		waiting.delete(element);
+		connect(element, db);
+	}
+}
+
+function context(): AudioContext | null {
+	if (ctx) {
+		return ctx;
+	}
+	const Ctor = window.AudioContext;
+	if (!Ctor) {
+		return null;
+	}
+	ctx = new Ctor();
+	// The state can change without us asking — a resume that resolves late, a browser that
+	// suspends a backgrounded page and lets it go again — and each of those is a chance to give
+	// a waiting element the graph it asked for.
+	ctx.addEventListener("statechange", flush);
+	return ctx;
+}
+
+function connect(element: HTMLMediaElement, db: number): void {
+	// Deliberately does not create the context: the only place that does is the gesture below.
+	// Before the sound has ever been turned on there is nothing here to hear, and a page that
+	// opens an audio session it may never use is a page holding a resource for nothing.
+	const live = ctx;
+	if (live?.state !== "running") {
+		// Never route an element into a context that is not running: the routing cannot be undone,
+		// and an element routed into a suspended graph is not quieter, it is silent.
+		waiting.set(element, db);
+		element.dataset.boost = "wait";
+		void live?.resume().catch(() => undefined);
+		return;
+	}
+
+	let gain = graphs.get(element);
+	if (!gain) {
+		try {
+			const source = live.createMediaElementSource(element);
+			gain = live.createGain();
+			gain.gain.value = 1;
+			source.connect(gain).connect(live.destination);
+			graphs.set(element, gain);
+		} catch {
+			// Already routed, or refused outright. Either way the element still plays — through
+			// whatever it was routed into the first time — and the boost is simply not applied.
+			return;
+		}
+	}
+	gain.gain.setTargetAtTime(amplitude(db), live.currentTime, RAMP);
+	element.dataset.boost = db.toFixed(1);
+}
+
+/**
+ * Amplify one element by `db`, once the browser allows it.
+ *
+ * Returns the teardown for the caller's effect. It does not take the routing back — nothing can —
+ * it takes the element out of the queue and returns the gain to unity, so an element that is
+ * still alive is left playing at the level it would have played at anyway.
+ */
+export function boost(element: HTMLMediaElement, db: number): () => void {
+	if (db > 0) {
+		/*
+		 * Every state this can be in is written onto the element, and the debug panel prints it:
+		 * a number once the gain is applied, `wait` while the context is not running yet, `off`
+		 * where the graph is not allowed at all. Which one it is cannot be worked out from the
+		 * outside — all three sound identical — and the platform question this exists to answer
+		 * is one that has to be answered on a phone, where there is no console to ask.
+		 */
+		if (boostAllowed()) {
+			connect(element, db);
+		} else {
+			element.dataset.boost = "off";
+		}
+	}
+	return () => {
+		waiting.delete(element);
+		const gain = graphs.get(element);
+		if (gain && ctx) {
+			gain.gain.setTargetAtTime(1, ctx.currentTime, RAMP);
+		}
+		delete element.dataset.boost;
+	};
+}
+
+/**
+ * Give the context its chance, from inside the gesture that turns the sound on.
+ *
+ * This is the whole reason the graph is affordable. A context created during a real gesture is
+ * allowed to start running immediately; one created at any other moment starts suspended, and
+ * every element that wanted a boost would sit in `waiting` until something else woke it.
+ */
+export function resumeAudio(): void {
+	const live = context();
+	if (live && live.state !== "running") {
+		void live.resume().catch(() => undefined);
+	}
+	flush();
 }

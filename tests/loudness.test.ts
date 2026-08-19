@@ -15,7 +15,12 @@ import { join } from "node:path";
 import { type LoudnessIndex, readLoudness } from "../src/server/index/loudness.ts";
 import { Registry } from "../src/server/index/registry.ts";
 import type { Post } from "../src/shared/types.ts";
-import { playbackVolume } from "../src/web/feed/loudness.ts";
+import {
+	boostFor,
+	boostPermitted,
+	MAX_BOOST_DB,
+	playbackVolume,
+} from "../src/web/feed/loudness.ts";
 
 const LOUD = "7467909701850696968";
 
@@ -106,6 +111,60 @@ describe("playbackVolume", () => {
 			expect(volume).toBeGreaterThanOrEqual(0);
 			expect(volume).toBeLessThanOrEqual(1);
 		}
+	});
+});
+
+describe("boostFor", () => {
+	const post = (loudnessGain: number | null) => ({ loudnessGain }) as Post;
+
+	test("is the amplification a post asks for", () => {
+		expect(boostFor(post(4.4))).toBe(4.4);
+	});
+
+	test("is nothing at all for a post that wants pulling down, or was never measured", () => {
+		// The two are handled by `playbackVolume`, which is a multiplication and needs no graph.
+		expect(boostFor(post(-5.1))).toBe(0);
+		expect(boostFor(post(0))).toBe(0);
+		expect(boostFor(post(null))).toBe(0);
+	});
+
+	test("stops at the ceiling", () => {
+		// A real archive here holds posts measured at -41 LUFS, which ask for +26 dB. ttdl is
+		// right not to cap that — it does not know what the file will be played on — and this is
+		// where the policy belongs: past the ceiling what gets amplified is the noise floor.
+		expect(boostFor(post(26.12))).toBe(MAX_BOOST_DB);
+		expect(boostFor(post(MAX_BOOST_DB))).toBe(MAX_BOOST_DB);
+	});
+});
+
+describe("boostPermitted", () => {
+	const IPHONE = ["iPhone", 5] as const;
+	const IPAD = ["MacIntel", 5] as const;
+	const MAC = ["MacIntel", 0] as const;
+
+	test("a desktop browser gets the graph", () => {
+		expect(boostPermitted("", ...MAC)).toBe(true);
+		expect(boostPermitted("?debug=1", ...MAC)).toBe(true);
+	});
+
+	test("iOS does not, and an iPad is iOS however it introduces itself", () => {
+		// iPadOS has reported MacIntel since version 13; the touch points are the only tell, and
+		// a Mac that answers this wrongly costs quiet posts, while an iPad that does costs sound.
+		expect(boostPermitted("", ...IPHONE)).toBe(false);
+		expect(boostPermitted("", ...IPAD)).toBe(false);
+	});
+
+	test("the flag overrides the platform in both directions", () => {
+		// Which is the whole point of having it: the iOS ban is a guess until someone stands in
+		// front of a phone with the ringer switch and settles it.
+		expect(boostPermitted("?boost=1", ...IPHONE)).toBe(true);
+		expect(boostPermitted("?debug=1&boost=1", ...IPAD)).toBe(true);
+		expect(boostPermitted("?boost=0", ...MAC)).toBe(false);
+	});
+
+	test("anything else in the flag is not an answer", () => {
+		expect(boostPermitted("?boost=yes", ...IPHONE)).toBe(false);
+		expect(boostPermitted("?boost=", ...MAC)).toBe(true);
 	});
 });
 

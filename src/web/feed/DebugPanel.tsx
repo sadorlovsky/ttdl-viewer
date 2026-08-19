@@ -47,8 +47,11 @@ export function DebugPanel({ scroller }: { scroller: RefObject<HTMLElement | nul
 					`t=${media.currentTime.toFixed(1)} buf=${buffered} ` +
 					`${media.paused ? "PAUSED" : "playing"} ${media.muted ? "muted" : "SOUND"} ` +
 					// The applied volume, not the chosen one: it is the loudness correction made
-					// visible, and the only place the two can be told apart on a phone.
-					`vol=${media.volume.toFixed(2)} ` +
+					// visible, and the only place the two can be told apart on a phone. `boost` is
+					// its other half — set only once an element is actually routed through the
+					// gain node, so a dash there means the graph was refused, not that the post
+					// asked for nothing.
+					`vol=${media.volume.toFixed(2)} boost=${media.dataset.boost ?? "-"} ` +
 					`${byPolicy ? "BY-POLICY " : ""}els=${elements} ` +
 					`err=${media.error?.code ?? "-"} refused=${data.refused ?? "-"} | ${flags || "-"}`,
 			);

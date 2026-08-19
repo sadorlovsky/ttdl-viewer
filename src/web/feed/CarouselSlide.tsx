@@ -5,7 +5,7 @@ import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import { bankLap, type Lap, shiftFor } from "./clock.ts";
 import type { SlideControls } from "./controls.ts";
-import { playbackVolume } from "./loudness.ts";
+import { boost, boostFor, playbackVolume } from "./loudness.ts";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
 
@@ -202,6 +202,22 @@ export function CarouselSlide({
 		audio.defaultPlaybackRate = rate;
 		audio.playbackRate = rate;
 	}, [muted, volume, rate, post]);
+
+	/*
+	 * The other half of the correction, and the half that needs a graph rather than a number.
+	 *
+	 * Nothing happens here until the sound has been turned on: the element is queued, and the
+	 * gesture that creates the audio context flushes the queue. Which is also why this is its own
+	 * effect — it must not re-run on every volume or rate change, since the routing it performs
+	 * is permanent and only the gain value is worth revisiting.
+	 */
+	useEffect(() => {
+		const element = audioRef.current;
+		if (!element) {
+			return;
+		}
+		return boost(element, boostFor(post));
+	}, [post]);
 
 	/**
 	 * Re-anchor the wall clock when the rate changes, then adopt the new rate.

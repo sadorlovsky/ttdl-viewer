@@ -25,7 +25,7 @@ import { Caption } from "../feed/Caption.tsx";
 import { CarouselSlide } from "../feed/CarouselSlide.tsx";
 import type { SlideControls } from "../feed/controls.ts";
 import { DebugPanel } from "../feed/DebugPanel.tsx";
-import { playbackVolume } from "../feed/loudness.ts";
+import { playbackVolume, resumeAudio } from "../feed/loudness.ts";
 import { PostMenu } from "../feed/PostMenu.tsx";
 import { VideoSlide } from "../feed/VideoSlide.tsx";
 import { date, duration } from "../lib/format.ts";
@@ -387,6 +387,10 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 	const toggleSound = useCallback(() => {
 		markInteracted();
 		toggleMuted();
+		// Also here, and not only in the pointer handler above: this control is reachable by
+		// keyboard, and a press that never went through a pointer would otherwise leave the graph
+		// asleep on the one gesture that most clearly asks for sound. See loudness.ts.
+		resumeAudio();
 		const media = currentMedia();
 		if (!media || !activePost) {
 			return;
@@ -626,6 +630,12 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			syncActive.current();
 			markInteracted();
 			dismissFeedHint();
+			// The same touch also buys the audio graph its chance to run, for the same reason it
+			// buys the elements theirs: a context created inside a gesture may start immediately,
+			// and one created at any other moment starts suspended. The speaker button is not
+			// enough on its own — a viewer whose sound preference is already on never presses it,
+			// and every post waiting to be amplified would wait forever.
+			resumeAudio();
 			/*
 			 * Everywhere except the control that owns the sound.
 			 *
