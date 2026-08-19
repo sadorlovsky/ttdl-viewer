@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { LOUDNESS_FILE } from "./loudness.ts";
 import {
 	type MediaExt,
 	PROFILE_AVATAR,
@@ -276,6 +277,10 @@ const STAMP_FILES = [
 	// Rewritten whole every time ttdl is handed an export, and the dates in it are on every post
 	// of a list archive — so a run that records them has to be noticed here.
 	".liked.json",
+	// Same again for the volume corrections: `ttdl.py loudness` on an archive that is otherwise
+	// finished rewrites nothing else, so without this the numbers would sit on disk unread until
+	// the next download or a restart.
+	LOUDNESS_FILE,
 	PROFILE_CARD,
 ];
 

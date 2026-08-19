@@ -46,6 +46,9 @@ export function DebugPanel({ scroller }: { scroller: RefObject<HTMLElement | nul
 				`#${index} rs=${media.readyState} net=${media.networkState} ` +
 					`t=${media.currentTime.toFixed(1)} buf=${buffered} ` +
 					`${media.paused ? "PAUSED" : "playing"} ${media.muted ? "muted" : "SOUND"} ` +
+					// The applied volume, not the chosen one: it is the loudness correction made
+					// visible, and the only place the two can be told apart on a phone.
+					`vol=${media.volume.toFixed(2)} ` +
 					`${byPolicy ? "BY-POLICY " : ""}els=${elements} ` +
 					`err=${media.error?.code ?? "-"} refused=${data.refused ?? "-"} | ${flags || "-"}`,
 			);

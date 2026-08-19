@@ -4,6 +4,7 @@ import { PlayIcon } from "../components/Icons.tsx";
 import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import type { SlideControls } from "./controls.ts";
+import { playbackVolume } from "./loudness.ts";
 import { Scrubber } from "./Scrubber.tsx";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
@@ -259,7 +260,7 @@ export function VideoSlide({
 			return;
 		}
 		video.muted = muted;
-		video.volume = volume;
+		video.volume = playbackVolume(post, volume);
 		/*
 		 * Both, and `defaultPlaybackRate` is the one that matters.
 		 *
@@ -275,7 +276,7 @@ export function VideoSlide({
 		 */
 		video.defaultPlaybackRate = rate;
 		video.playbackRate = rate;
-	}, [muted, volume, rate]);
+	}, [muted, volume, rate, post]);
 
 	/**
 	 * Start this element, and give the sound up if that is the only way it will run.

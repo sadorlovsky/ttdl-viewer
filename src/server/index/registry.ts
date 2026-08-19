@@ -5,6 +5,7 @@ import type { Archive, ArchiveCounts, AuthorSummary, Post } from "../../shared/t
 import { buildPost, UNKNOWN_HANDLE } from "./build.ts";
 import { readInfo } from "./info.ts";
 import { type LikesIndex, readLikedState } from "./likes.ts";
+import { readLoudness } from "./loudness.ts";
 import { readCard } from "./profile.ts";
 import {
 	type ArchiveScan,
@@ -100,6 +101,9 @@ function indexArchive(root: string, name: string, fallback: LikesIndex): Indexed
 	const kind = scan.source !== null ? "list" : "profile";
 	const fallbackHandle = kind === "profile" ? name : UNKNOWN_HANDLE;
 	const { likes, from: likedFrom } = likedFor(scan, fallback);
+	// Once per archive, not once per post: the sidecar holds every measurement in one object, and
+	// the alternative is opening the same file ten thousand times to read one number out of it.
+	const loudness = readLoudness(scan.dir);
 
 	const posts: Post[] = [];
 	let ghosts = 0;
@@ -112,7 +116,13 @@ function indexArchive(root: string, name: string, fallback: LikesIndex): Indexed
 		}
 		const info = readInfo(scan.dir, group.info?.name);
 		const expected = readExpected(scan.dir, group.photoState);
-		const post = buildPost(group, info, { archiveId, fallbackHandle, expected, likes });
+		const post = buildPost(group, info, {
+			archiveId,
+			fallbackHandle,
+			expected,
+			likes,
+			loudness,
+		});
 		if (!post) {
 			ghosts++;
 			continue;

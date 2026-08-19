@@ -478,6 +478,62 @@ class ArchiveWriter {
 		this.copy("avatar.jpg", picture);
 	}
 
+	/**
+	 * ttdl's loudness sidecar, as `ttdl.py loudness` leaves it (ttdl.py: LOUDNESS_FILE).
+	 *
+	 * The numbers are invented but the arithmetic is ttdl's: an integrated loudness and a true
+	 * peak are drawn per post, and the gain is derived from them exactly as ttdl derives it —
+	 * capped upwards by the headroom the peak leaves, never capped downwards. Inventing the gain
+	 * directly would have been three lines shorter and would have produced a file whose numbers
+	 * do not agree with each other, which is precisely what a reader written against it would
+	 * then be trusted not to notice.
+	 *
+	 * Three kinds of entry the viewer has to survive are seeded deliberately: a post with no
+	 * soundtrack, a silent one, and posts left unmeasured — the state ttdl leaves behind when a
+	 * download was cut short, and the state every post is in before `loudness` has ever run.
+	 */
+	measure(): void {
+		const target = -14.0;
+		const ceiling = -1.0;
+		const posts: Record<string, unknown> = {};
+
+		this.posts.forEach((post, index) => {
+			// Every eleventh post is left out: unmeasured is not an error state, it is what the
+			// scan has not reached yet.
+			if (index % 11 === 7) {
+				return;
+			}
+			if (index % 23 === 5) {
+				posts[post.id] = { audio: false };
+				return;
+			}
+			if (index % 29 === 9) {
+				posts[post.id] = { i: -70.0, tp: -70.0, lra: 0.0, thresh: -70.0, silent: true, gain: 0.0 };
+				return;
+			}
+			// TikTok's own mixes cluster well above any target, which is why the corrections in a
+			// real sidecar are almost all cuts.
+			const i = Number(between(-19, -5).toFixed(1));
+			const tp = Number(between(-2.5, 0.2).toFixed(1));
+			let gain = target - i;
+			if (gain > 0) {
+				gain = Math.min(gain, Math.max(ceiling - tp, 0));
+			}
+			posts[post.id] = {
+				i,
+				tp,
+				lra: Number(between(1.5, 11).toFixed(1)),
+				thresh: Number((i - between(9, 11)).toFixed(1)),
+				gain: Number(gain.toFixed(2)),
+			};
+		});
+
+		this.write(
+			"loudness.json",
+			`${JSON.stringify({ target_i: target, target_tp: ceiling, posts }, null, 2)}\n`,
+		);
+	}
+
 	finish(source: string | null): void {
 		const ids = this.posts.map((p) => p.id).sort();
 		this.write("archive.txt", `${ids.map((id) => `tiktok ${id}`).join("\n")}\n`);
@@ -890,6 +946,7 @@ function buildTestUser(root: string): void {
 
 	a.card(author, solidJpeg("teal", 640, 640));
 
+	a.measure();
 	a.finish(null);
 	console.log(`  testuser        ${a.posts.length} posts`);
 }
@@ -920,6 +977,7 @@ function buildLiked(root: string): void {
 		});
 	}
 
+	a.measure();
 	a.finish("Like List.txt");
 	console.log(`  liked           ${a.posts.length} posts, ${AUTHORS.length} authors`);
 	writeLikesExport(root, a);

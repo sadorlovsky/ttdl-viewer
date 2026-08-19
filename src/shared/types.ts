@@ -154,6 +154,20 @@ export interface Post {
 		urls: string[];
 	} | null;
 
+	/**
+	 * Decibels this post needs to play at the same loudness as the rest of the archive, from
+	 * ttdl's `loudness.json`.
+	 *
+	 * Null when nothing measured this post: an archive ttdl has not run `loudness` over, a post
+	 * with no soundtrack, a download that was cut short. Every one of those means the same thing
+	 * to a player — leave the volume alone — but they are all different from a measured 0.0.
+	 *
+	 * Negative on most posts, since TikTok's own mixes sit well above any sane target. A positive
+	 * one is already capped by the headroom the file's true peak leaves, so applying it in full
+	 * cannot clip.
+	 */
+	loudnessGain: number | null;
+
 	hasInfo: boolean;
 	/** Displayed and copyable; never rendered as a live href. */
 	webpageUrl: string | null;

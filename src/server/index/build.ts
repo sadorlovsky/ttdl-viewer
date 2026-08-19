@@ -3,6 +3,7 @@ import type { AuthorSummary, DateSource, Post } from "../../shared/types.ts";
 import { classify } from "./complete.ts";
 import type { NormalizedInfo } from "./info.ts";
 import type { LikesIndex } from "./likes.ts";
+import type { LoudnessIndex } from "./loudness.ts";
 import { displayTitle, idToUnix } from "./parse-name.ts";
 import type { FileGroup } from "./scan.ts";
 
@@ -50,6 +51,8 @@ export interface BuildContext {
 	expected: number | null;
 	/** Saving dates from the TikTok export. Empty unless --likes was given. */
 	likes?: LikesIndex;
+	/** Volume corrections from `loudness.json`. Empty unless ttdl has measured this archive. */
+	loudness?: LoudnessIndex;
 }
 
 /**
@@ -130,6 +133,8 @@ export function buildPost(
 				}
 			: null,
 		photos,
+
+		loudnessGain: ctx.loudness?.get(group.postId) ?? null,
 
 		hasInfo: info !== null,
 		webpageUrl: info?.webpageUrl ?? null,

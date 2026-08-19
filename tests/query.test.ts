@@ -58,6 +58,7 @@ function makePost({ id = postId(1), createdAt = 1_704_067_200, likes = null }: O
 		},
 		cover: null,
 		photos: null,
+		loudnessGain: null,
 		hasInfo: true,
 		webpageUrl: null,
 		liked: null,

@@ -43,6 +43,9 @@ export const STATE_FILES = new Set([
 	// rather than an unparseable name the scan throws away — it is read, and a change to it has to
 	// invalidate the index like any other.
 	".liked.json",
+	// The R128 measurements. Recognised here for the same reason as the file above: it is read,
+	// so a change to it has to reach the index rather than being thrown away as an odd filename.
+	"loudness.json",
 	".remote",
 ]);
 

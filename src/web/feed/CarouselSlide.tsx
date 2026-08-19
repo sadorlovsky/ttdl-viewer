@@ -5,6 +5,7 @@ import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import { bankLap, type Lap, shiftFor } from "./clock.ts";
 import type { SlideControls } from "./controls.ts";
+import { playbackVolume } from "./loudness.ts";
 import styles from "./Slide.module.css";
 import { useLongPress } from "./useLongPress.ts";
 
@@ -190,7 +191,7 @@ export function CarouselSlide({
 		if (!audio) {
 			return;
 		}
-		audio.volume = volume;
+		audio.volume = playbackVolume(post, volume);
 		// Keep the element playing even with the sound off. Autoplay policy allows a muted
 		// element, and `currentTime` is the clock the images run on — stopping it would freeze
 		// the slideshow whenever the user mutes.
@@ -200,7 +201,7 @@ export function CarouselSlide({
 		// `playbackRate` to `defaultPlaybackRate` every time a slide mounts. See the video slide.
 		audio.defaultPlaybackRate = rate;
 		audio.playbackRate = rate;
-	}, [muted, volume, rate]);
+	}, [muted, volume, rate, post]);
 
 	/**
 	 * Re-anchor the wall clock when the rate changes, then adopt the new rate.

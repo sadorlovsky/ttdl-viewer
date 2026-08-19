@@ -127,6 +127,44 @@ instead of appearing there as a profile with zero posts.
 The export is a snapshot: posts saved after you requested it are not in it until you request a new
 one.
 
+## Evening out the volume
+
+TikTok mixes wildly — a whispered voiceover sits next to something compressed into a wall — so
+watching an archive in order means riding the volume knob. ttdl measures every post to
+[EBU R128](https://tech.ebu.ch/publications/r128) and writes the numbers beside the media as
+`loudness.json`, without re-encoding anything. The viewer reads that file and plays each post at
+the level it asks for.
+
+**There is nothing to configure.** The sidecar is inside an archive that is being scanned anyway:
+
+```bash
+ttdl.py loudness @username   # once, in ttdl — offline, no rate limit, minutes for a few thousand
+bun run start                # the levels are simply even
+```
+
+Running it against an archive the viewer already has open needs no restart: `loudness.json` is in
+the change probe, and `ttdl.py loudness` on a finished archive rewrites nothing else at all.
+
+**Only downwards.** A post asking to be made *louder* is left exactly as it is. That is not a
+judgement about quiet posts — `HTMLMediaElement.volume` is capped at 1, so a boost cannot be
+expressed without routing the element through a WebAudio graph, and that trade is bad here in
+three separate ways: the routing is a one-way door (an element accepts a
+`MediaElementAudioSourceNode` once and never gives it back), the graph is silent for as long as
+its `AudioContext` is suspended — which is the state a feed that opens muted by autoplay policy is
+in — and on iOS it moves the sound onto a path that obeys the ringer switch, which
+`<video playsinline>` does not. A feed that can go mute on a phone is not worth a few quiet posts
+made louder.
+
+What is left is the half that was the actual complaint. The loud posts are the ones that make you
+flinch, they are most of what TikTok serves, and pulling them down is also the half that cannot go
+wrong: attenuation cannot clip, so there is nothing to limit — no `DynamicsCompressor` smearing
+transients to pay for a rescue that was never needed. The viewer's own volume stays the outer
+term, so the slider still means what it says.
+
+A post ttdl has not measured — an archive the command was never run over, a post with no
+soundtrack, a download that was cut short — plays exactly as it did before any of this existed.
+`?debug=1` prints the applied volume, which is where a correction can be seen doing something.
+
 ## Running it in Docker
 
 The runtime image carries no `node_modules` at all: the server imports nothing but `node:` builtins
@@ -342,6 +380,12 @@ teardown ran against a healthy element and the remount put nothing back, so in `
 video in the feed was an empty element that never loaded — while production, where StrictMode does
 not double-invoke, was fine. A bug that appears only where the code is worked on is worth this
 much ceremony to avoid.
+
+**Loudness is read, never derived.** `loudness.json` holds the measurements *and* the gain ttdl
+derived from them, and only the gain is taken. Recomputing it here from `i` and `tp` would mean
+holding an opinion about the target — but the target is a property of the archive, set by
+`ttdl.py loudness --target`, which rewrites every gain in place without re-running ffmpeg. Two
+programs deriving the same number from the same file is two places for it to change.
 
 **Pagination is keyset, not offset.** ttdl and this viewer routinely run at the same time; a
 rescan landing mid-scroll shifts every offset after the insertion point, which shows up as
