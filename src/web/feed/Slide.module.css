@@ -240,11 +240,14 @@
  * The bottom band is spoken for three times over — caption left, rail right, scrubber across — so a
  * sentence centred there landed on top of the caption's last line, which on a post with no metadata
  * is the archive-truth line. This sits in the empty top-centre of the stage instead, clear of the
- * chrome band above it.
+ * chrome band above it — and clear of the first-run hint, which is a pill in the same column and
+ * had been printing straight through this. The offset clears that pill at its tallest: its copy
+ * wraps to two lines on a narrow phone and to three on the narrowest, and a slow read on a first
+ * run is exactly when both are on screen at once.
  */
 .stillReading {
 	position: absolute;
-	top: calc(96px + env(safe-area-inset-top));
+	top: calc(var(--chrome-band) + 92px);
 	left: 50%;
 	color: var(--text-3);
 	font-size: 12.5px;
@@ -268,7 +271,7 @@
  */
 .boost {
 	position: absolute;
-	top: 76px;
+	top: calc(var(--chrome-band) + 16px);
 	left: 50%;
 	z-index: var(--z-overlay);
 	padding: 6px 14px;
@@ -381,10 +384,17 @@
 	will-change: transform;
 }
 
-/* Below the feed chrome, which owns the top-right corner. */
+/*
+ * Below the feed chrome and below the position readout, both of which own the top-right corner
+ * before it does.
+ *
+ * Three things stack there on a carousel — the buttons, "which post of the archive", and this,
+ * "which image of the post" — and they are measured from the band rather than typed as fixed tops,
+ * which is what had two of them landing on each other.
+ */
 .counter {
 	position: absolute;
-	top: calc(88px + env(safe-area-inset-top));
+	top: calc(var(--chrome-band) + 32px);
 	right: calc(16px + env(safe-area-inset-right));
 	padding: 2px 8px;
 	border-radius: var(--radius-pill);

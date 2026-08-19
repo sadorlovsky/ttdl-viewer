@@ -853,7 +853,9 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 				// Faded out is not the same as gone: at `opacity: 0` these were still focusable.
 				inert={menuOpen || chromeHidden}
 			>
-				<div className={styles.chrome} data-kind={activePost?.kind}>
+				{/* No `data-kind` here any more: the band reserves the story strip on every post, so
+				    there is nothing left for the kind to change. */}
+				<div className={styles.chrome}>
 					<PressButton className={styles.back} onPress={backToGrid} aria-label="Back to the grid">
 						<BackIcon />
 					</PressButton>

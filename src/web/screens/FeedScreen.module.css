@@ -30,6 +30,24 @@
 	 * `calc(x / var(--stage, 9 / 16))` it becomes `x / 9 / 16`, which is a hundred and forty-fourth
 	 * of the answer and fails silently on exactly the posts that have no metadata to state a ratio.
 	 */
+	/*
+	 * The top chrome band: where it begins, and where it ends.
+	 *
+	 * The strip above the buttons is reserved on every post, not only on the ones that use it. A
+	 * carousel draws a story bar across the top of the picture, and its segments carry 32px hit
+	 * boxes so a thumb can reach them — so the band has to start below that or the buttons and the
+	 * bar share their targets. Making that conditional on the post kind is what put a 17px jump in
+	 * Back, Mute and Raw metadata every time the feed crossed from a video to a photo post: the
+	 * controls moved because the content changed, which is the one thing chrome must never do. On a
+	 * video the strip is simply empty, the way a reserved scrollbar gutter is.
+	 *
+	 * `--chrome-band` is the bottom edge of the buttons. Everything the feed places under them is
+	 * measured from it rather than from a number typed once and left behind — five such numbers had
+	 * been, and all five were measured against the band's video position, so on a carousel the
+	 * position readout sat on top of the Raw metadata button.
+	 */
+	--chrome-top: calc(41px + env(safe-area-inset-top));
+	--chrome-band: calc(var(--chrome-top) + 36px);
 	--stage-ratio: var(--stage, 0.5625);
 	--stage-w: min(calc(100dvw - 2 * var(--gutter)), calc(100dvh * var(--stage-ratio)));
 	--stage-h: min(100dvh, calc((100dvw - 2 * var(--gutter)) / var(--stage-ratio)));
@@ -182,8 +200,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	/* Clears the status bar, on a screen that has one. */
-	padding: calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 14px
+	/* Clears the status bar and the story strip alike — see `--chrome-top`. */
+	padding: var(--chrome-top) calc(16px + env(safe-area-inset-right)) 14px
 		calc(16px + env(safe-area-inset-left));
 	background: linear-gradient(rgb(0 0 0 / 0.4), transparent);
 	pointer-events: none;
@@ -191,17 +209,6 @@
 
 .chrome > * {
 	pointer-events: auto;
-}
-
-/*
- * Pushed clear of the story-segment bar, which only exists on a carousel.
- *
- * The segments' hit boxes are 32px tall so a thumb can reach them, and they paint above this band —
- * so on a carousel the top third of Back, Mute and Raw metadata answered "go to image 1" instead.
- * The buttons keep their whole target; the bar keeps its whole target; they simply stop sharing.
- */
-.chrome[data-kind="carousel"] {
-	padding-top: calc(41px + env(safe-area-inset-top));
 }
 
 .chromeRight {
@@ -234,7 +241,7 @@
 
 .position {
 	position: absolute;
-	top: 70px;
+	top: calc(var(--chrome-band) + 10px);
 	right: 16px;
 	z-index: var(--z-overlay);
 	color: var(--text-3);
@@ -306,7 +313,7 @@
  */
 .hint {
 	position: absolute;
-	top: 70px;
+	top: calc(var(--chrome-band) + 10px);
 	left: 50%;
 	z-index: var(--z-overlay);
 	max-width: calc(100% - 140px);
@@ -433,6 +440,9 @@
 		 * well above them.
 		 */
 		--stage-foot: calc((100dvh - var(--stage-h)) / 2 + 28px);
+		/* Nothing above the buttons out here: the story bar is on the picture, and the picture is
+		   several hundred pixels away. */
+		--chrome-top: 20px;
 	}
 
 	/*
@@ -453,14 +463,13 @@
 	 * window's corners. The gradient goes with them: it existed to keep them legible over a bright
 	 * frame, and there is no frame under them any more.
 	 */
-	.chrome,
-	.chrome[data-kind="carousel"] {
-		padding: 20px 20px 0;
+	.chrome {
+		padding: var(--chrome-top) 20px 0;
 		background: none;
 	}
 
 	.position {
-		top: 68px;
+		top: calc(var(--chrome-band) + 12px);
 		right: 20px;
 	}
 
