@@ -77,6 +77,41 @@ function makeTimestamp(index: number, total: number): number {
 
 /* ------------------------------------------------------------------------------ media making */
 
+/**
+ * The muzak loop every fixture is scored with, in place of the sine tone that used to stand in
+ * for a soundtrack. A full-scale sine is genuinely unpleasant to sit through, and these fixtures
+ * exist to be watched — a soundtrack nobody can stand is a soundtrack nobody checks.
+ *
+ * Four bars at 135.1 BPM, cut on the bar and crossfaded into itself, so `-stream_loop -1` can
+ * repeat it under a video of any length without a seam at the join.
+ */
+const LOOP = join(import.meta.dir, "assets", "elevator-loop.flac");
+if (!existsSync(LOOP)) {
+	console.error(`Missing ${LOOP}\nThe fixture soundtrack is committed to the repo; restore it.\n`);
+	process.exit(5);
+}
+
+/**
+ * Neighbouring posts have to stay distinguishable by ear while scrolling — the one virtue of the
+ * old per-hue sine frequency, and worth keeping. Hue picks a semitone instead of a frequency.
+ *
+ * The divisor is 30, not 12: the hues in use (0, 30, 60, 100, 140, 190, 220, 260, 300) collapse
+ * onto three distinct values under `% 12`, which would have left most posts sounding alike.
+ */
+const semitoneFor = (hue: number) => (Math.round(hue / 30) % 12) - 6;
+
+/**
+ * Pitch by resampling — the loop plays off-speed, like a record at the wrong rpm, which shifts
+ * tempo along with pitch. That is the point: it needs no time-stretcher (librubberband is not in
+ * every ffmpeg build) and cannot smear the loop's edges, so the seam survives transposition.
+ * `asetrate` leaves the stream declaring the wrong rate, hence `aresample` behind it.
+ */
+const transpose = (semitone: number) =>
+	`asetrate=${Math.round(48_000 * 2 ** (semitone / 12))},aresample=48000`;
+
+/** Cache-key fragment: a bare minus would render `muzak-13--3.mp3`, which reads as a typo. */
+const semitoneTag = (semitone: number) => (semitone < 0 ? `m${-semitone}` : `p${semitone}`);
+
 const CACHE = join(OUT, "..", ".media-cache");
 
 function sh(cmd: string[]): void {
@@ -100,7 +135,7 @@ interface VideoSpec {
  * per-post hue makes neighbouring posts distinguishable while scrolling.
  */
 function video(spec: VideoSpec): string {
-	const path = join(CACHE, `${spec.key}.mp4`);
+	const path = join(CACHE, `${spec.key}-muzak.mp4`);
 	if (existsSync(path)) {
 		return path;
 	}
@@ -111,12 +146,18 @@ function video(spec: VideoSpec): string {
 		"lavfi",
 		"-i",
 		`testsrc2=size=${spec.width}x${spec.height}:rate=30:duration=${spec.duration}`,
-		"-f",
-		"lavfi",
+		"-stream_loop",
+		"-1",
 		"-i",
-		`sine=frequency=${220 + (spec.hue % 12) * 40}:duration=${spec.duration}`,
+		LOOP,
+		"-map",
+		"0:v",
+		"-map",
+		"1:a",
 		"-vf",
 		`hue=h=${spec.hue}`,
+		"-af",
+		transpose(semitoneFor(spec.hue)),
 		"-c:v",
 		"libx264",
 		"-pix_fmt",
@@ -125,7 +166,10 @@ function video(spec: VideoSpec): string {
 		"ultrafast",
 		"-c:a",
 		"aac",
-		"-shortest",
+		// A looped input never ends, so `-shortest` has nothing to measure against: the length
+		// has to be stated outright.
+		"-t",
+		String(spec.duration),
 		"-movflags",
 		"+faststart",
 		path,
@@ -163,18 +207,27 @@ function cover(videoPath: string, key: string, ext: ".jpg" | ".jpeg" | ".webp" |
 	return path;
 }
 
-function audio(durationSeconds: number, freq: number): string {
-	const path = join(CACHE, `audio-${durationSeconds}-${freq}.m4a`);
+/**
+ * A standalone soundtrack file — what a carousel post carries beside its images. The semitone is
+ * a parameter for the same reason the video's is: two posts in a row that sound identical make a
+ * carousel-advance bug invisible.
+ */
+function audio(durationSeconds: number, semitone: number): string {
+	const path = join(CACHE, `muzak-${durationSeconds}-${semitoneTag(semitone)}.m4a`);
 	if (existsSync(path)) {
 		return path;
 	}
 	sh([
 		ffmpeg as string,
 		"-y",
-		"-f",
-		"lavfi",
+		"-stream_loop",
+		"-1",
 		"-i",
-		`sine=frequency=${freq}:duration=${durationSeconds}`,
+		LOOP,
+		"-af",
+		transpose(semitone),
+		"-t",
+		String(durationSeconds),
 		"-c:a",
 		"aac",
 		path,
@@ -182,18 +235,22 @@ function audio(durationSeconds: number, freq: number): string {
 	return path;
 }
 
-function audioMp3(durationSeconds: number, freq: number): string {
-	const path = join(CACHE, `audio-${durationSeconds}-${freq}.mp3`);
+function audioMp3(durationSeconds: number, semitone: number): string {
+	const path = join(CACHE, `muzak-${durationSeconds}-${semitoneTag(semitone)}.mp3`);
 	if (existsSync(path)) {
 		return path;
 	}
 	sh([
 		ffmpeg as string,
 		"-y",
-		"-f",
-		"lavfi",
+		"-stream_loop",
+		"-1",
 		"-i",
-		`sine=frequency=${freq}:duration=${durationSeconds}`,
+		LOOP,
+		"-af",
+		transpose(semitone),
+		"-t",
+		String(durationSeconds),
 		"-c:a",
 		"libmp3lame",
 		path,
@@ -730,7 +787,7 @@ function addCarouselPost(o: CarouselOptions): string {
 	const bare = `${o.imagesDatePart ?? datePart}_${id}`;
 	const files: string[] = [];
 
-	const audioPath = audioExt === ".mp3" ? audioMp3(duration, 330) : audio(duration, 440);
+	const audioPath = audioExt === ".mp3" ? audioMp3(duration, -3) : audio(duration, 2);
 	o.archive.copy(`${stem}${audioExt}`, audioPath);
 	files.push(`${stem}${audioExt}`);
 
