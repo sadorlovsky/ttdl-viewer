@@ -74,3 +74,13 @@ bun run deploy
 
 The custom domain is in `wrangler.jsonc` as a route rather than in the dashboard, so the DNS record
 and the certificate follow from the deploy instead of being a step someone has to remember.
+
+One setting could not be moved into the repository the same way. Cloudflare's build image ships Bun
+1.2.15, which cannot read the `lockfileVersion: 2` that Bun 1.4 writes — it ignores `bun.lock` and
+then fails on `--frozen-lockfile`, which is the correct thing for it to do. Bun takes its version
+only from a `BUN_VERSION` build variable; unlike Node, Python and Ruby, it has no version file to
+commit. So the build settings carry `BUN_VERSION = 1.4.0`, and it is written down here because a
+setting that lives outside the repository is a setting on its way to being forgotten.
+
+Build watch paths are `docs/*`, evaluated from the repository root rather than from the root
+directory — so a commit that only touches the viewer does not rebuild the site.
