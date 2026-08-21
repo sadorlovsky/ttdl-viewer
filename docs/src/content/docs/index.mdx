@@ -1,0 +1,47 @@
+---
+title: ttdl-viewer
+description: A read-only, fully offline viewer for archives downloaded by ttdl.
+template: splash
+head:
+  # Otherwise the page title and the site title are the same word twice.
+  - tag: title
+    content: ttdl-viewer — an offline viewer for ttdl archives
+hero:
+  tagline: A darkroom for an archive that never leaves the disk.
+  actions:
+    - text: Running it locally
+      link: /start/running-it-locally/
+      icon: right-arrow
+    - text: On GitHub
+      link: https://github.com/sadorlovsky/ttdl-viewer
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+A short-video-app-shaped UI over the files [ttdl](https://github.com/sadorlovsky/ttdl) already put
+on your disk. Nothing leaves the machine it runs on, nothing is fetched from a CDN, and nothing
+here writes to an archive.
+
+<CardGrid stagger>
+	<Card title="Nothing goes out" icon="warning">
+		Not a thumbnail, not a font, not the author's picture. Enforced in two places rather than
+		merely intended: a [build step](/reference/fixtures-and-checks/) that fails on any remote
+		reference in the bundle, and a strict CSP on the page itself.
+	</Card>
+	<Card title="It only ever reads" icon="document">
+		Nothing renames a file or calls ttdl, so it cannot damage a download that took hours to
+		fetch. The one file it writes is a remembered root, kept
+		[outside every archive](/start/configuration/).
+	</Card>
+	<Card title="Even volume, no re-encoding" icon="seti:audio">
+		ttdl measures every post to EBU R128; the viewer plays each one at the level it asks for,
+		through `volume` or a WebAudio graph depending on
+		[what the browser honours](/guides/loudness/).
+	</Card>
+	<Card title="ttdl's format, ported exactly" icon="approve-check">
+		Three details of it [break a naive indexer](/reference/archive-format/). They are locked down
+		by ttdl's own test table, transcribed one-for-one.
+	</Card>
+</CardGrid>

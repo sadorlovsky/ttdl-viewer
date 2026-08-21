@@ -1,0 +1,63 @@
+/*
+ * The viewer's own tokens, from DESIGN.md — a black darkroom with one rose accent.
+ *
+ * Only Starlight's variables are set; no component is restyled. System fonts throughout, matching
+ * the app: a documentation site for something that fetches nothing should not fetch a webfont.
+ */
+
+:root,
+:root[data-theme="dark"] {
+	--sl-color-accent-low: #3d0a17;
+	--sl-color-accent: #fe2c55;
+	--sl-color-accent-high: #ff8fa3;
+
+	--sl-color-white: #ffffff;
+	--sl-color-gray-1: rgb(255 255 255 / 0.92);
+	--sl-color-gray-2: rgb(255 255 255 / 0.72);
+	--sl-color-gray-3: rgb(255 255 255 / 0.5);
+	--sl-color-gray-4: rgb(255 255 255 / 0.32);
+	--sl-color-gray-5: #262626;
+	--sl-color-gray-6: #1c1c1c;
+	--sl-color-black: #000000;
+
+	--sl-color-bg: #000000;
+	--sl-color-bg-nav: #121212;
+	--sl-color-bg-sidebar: #000000;
+	--sl-color-bg-inline-code: #1c1c1c;
+	--sl-color-hairline: rgb(255 255 255 / 0.12);
+	--sl-color-hairline-light: rgb(255 255 255 / 0.24);
+	--sl-color-hairline-shade: rgb(255 255 255 / 0.12);
+
+	--sl-color-text-accent: #fe2c55;
+	--sl-color-text-invert: #000000;
+
+	--sl-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+		sans-serif;
+	--sl-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Cyan is the developer-facing accent in the app; keep it for links inside prose. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+	color: #25f4ee;
+	text-underline-offset: 0.2em;
+}
+
+/* Tables carry real measurements here, so they need to read as data, not decoration. */
+.sl-markdown-content table:not(:where(.not-content *)) {
+	font-variant-numeric: tabular-nums;
+}
+
+.sl-markdown-content th:not(:where(.not-content *)) {
+	color: rgb(255 255 255 / 0.72);
+	font-weight: 600;
+}
+
+/*
+ * Flags and routes live in the first column of several tables, and they are the one thing a reader
+ * scans for. Wrapping `--root <dir>` across two lines makes that column unreadable at the width
+ * Starlight gives it, so tokens stay whole and the table scrolls instead.
+ */
+.sl-markdown-content td:first-child code:not(:where(.not-content *)),
+.sl-markdown-content th:first-child code:not(:where(.not-content *)) {
+	white-space: nowrap;
+}

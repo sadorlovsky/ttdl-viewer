@@ -27,5 +27,7 @@
 		"types": ["bun", "vite/client"]
 	},
 
-	"exclude": ["dist", "node_modules", "fixtures"]
+	// `docs` is its own Astro project with its own tsconfig; its `astro:content` virtual
+	// modules do not exist from here.
+	"exclude": ["dist", "node_modules", "fixtures", "docs"]
 }

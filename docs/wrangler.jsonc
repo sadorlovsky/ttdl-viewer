@@ -1,0 +1,20 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "ttdl-viewer-docs",
+	"compatibility_date": "2026-08-21",
+
+	// A static site with no Worker script: there is no `main`, because no request needs code. The
+	// runtime serves what `astro build` emitted and nothing else.
+	"assets": {
+		"directory": "./dist",
+		// Astro writes a real 404.html, so a miss should be a miss. The default would be fine for
+		// an SPA and wrong here — this site's routes are all real files.
+		"not_found_handling": "404-page"
+	},
+
+	// Attaching the domain here rather than in the dashboard is what makes the DNS record and the
+	// certificate follow from `wrangler deploy`, instead of being a step someone has to remember.
+	"routes": [{ "pattern": "ttdl-viewer.orlovsky.dev", "custom_domain": true }],
+
+	"observability": { "enabled": true }
+}
