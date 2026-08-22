@@ -160,3 +160,7 @@ fails on any remote reference in `dist/`, and a strict CSP covers the page itsel
 - **Explanation** — [Layout](https://ttdl-viewer.orlovsky.dev/explanation/layout/) ·
   [Notable decisions](https://ttdl-viewer.orlovsky.dev/explanation/decisions/) ·
   [Known limits](https://ttdl-viewer.orlovsky.dev/explanation/known-limits/)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -35,7 +35,7 @@ own lockfile. The root `tsconfig.json` excludes it.
   limit the code no longer has, a half of a check that was never built.
 - **The README delegates.** Depth lives on the site; two copies of the same prose drift. Every
   README section ends in a `→` link into it, and `## Documentation` mirrors the sidebar.
-- Badges need something real to point at. CI is real; there is still no `LICENSE`.
+- Badges need something real to point at. CI and `LICENSE` are both real now.
 
 ## Prose
 
