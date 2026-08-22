@@ -1,8 +1,10 @@
 services:
   ttdl-viewer:
+    # Built from this checkout. To run a published image instead, comment `build` out and
+    # uncomment `image` — pin the version rather than following `latest` on a machine you do not
+    # want changing under you. See https://ttdl-viewer.orlovsky.dev/guides/docker/ for the tags.
     build: .
-    # Or, once you have pushed an image somewhere your NAS can reach:
-    # image: ghcr.io/sadorlovsky/ttdl-viewer:latest
+    # image: ghcr.io/sadorlovsky/ttdl-viewer:0.1.0
     container_name: ttdl-viewer
     restart: unless-stopped
 

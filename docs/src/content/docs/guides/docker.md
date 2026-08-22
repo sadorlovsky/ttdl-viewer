@@ -38,6 +38,38 @@ Two things about that command are deliberate:
   it from other machines on your network — but there is no login in front of it, so only do that on
   a network you trust.
 
+## The published image
+
+Every tag is built for `linux/amd64` and `linux/arm64` and pushed to GitHub Packages, so a NAS or a
+Pi does not build anything itself:
+
+```bash
+docker pull ghcr.io/sadorlovsky/ttdl-viewer:0.1.0
+```
+
+| Tag | What it is |
+|---|---|
+| `0.1.0` | One release. The only tag that never moves |
+| `0.1` | The newest patch of that minor version |
+| `latest` | The newest release that is not a prerelease |
+| `edge` | The current `main`, rebuilt on every push |
+| `sha-<commit>` | One commit on `main` |
+
+`edge` has passed the same checks a release has: the workflow that pushes it runs the tests, the
+typecheck, the linter and the offline guard first. Nothing else has been said about it, so pin an
+exact version on a machine you do not want changing under you.
+
+In `docker-compose.yml`, comment out `build` and uncomment `image`:
+
+```yaml
+services:
+  ttdl-viewer:
+    # build: .
+    image: ghcr.io/sadorlovsky/ttdl-viewer:0.1.0
+```
+
+Then `docker compose up -d` without `--build`, and `docker compose pull` to move to a newer tag.
+
 ## Picking up new posts
 
 The index is built in memory at startup and there is no cache on disk, so **restart the container

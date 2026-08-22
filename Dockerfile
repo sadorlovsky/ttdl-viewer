@@ -26,6 +26,10 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/src/server ./src/server
 COPY --from=build /app/src/shared ./src/shared
 
+# package.json is here for one field: the version the server reports over /api/stats. Its
+# dependencies are already in dist and nothing installs from it at runtime.
+COPY --from=build /app/package.json ./package.json
+
 ENV NODE_ENV=production \
     TTDL_VIEWER_ROOT=/archives \
     TTDL_VIEWER_API_PORT=4174 \

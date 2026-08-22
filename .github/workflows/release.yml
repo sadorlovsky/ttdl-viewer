@@ -1,0 +1,119 @@
+name: Release
+
+# A tag is the trigger and the version. `scripts/release.ts` writes the version into package.json,
+# commits it and creates the tag; pushing that tag runs everything below.
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  # The tag says one version and package.json says another whenever a tag is made by hand. The
+  # server reports package.json's version over /api/stats, so the two disagreeing would ship an
+  # image that misreports itself.
+  version:
+    name: Tag matches package.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare
+        run: |
+          declared="v$(node -p 'require("./package.json").version')"
+          if [ "$declared" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME, package.json $declared"
+            exit 1
+          fi
+          echo "$declared"
+
+  checks:
+    name: CI
+    needs: version
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    name: Image
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # arm64 is built under QEMU. It is the slow half of this job and the reason a Synology or a
+      # Pi can run the image at all.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest` follows the newest stable tag only: metadata-action leaves it alone for a
+      # prerelease such as v0.2.0-rc.1.
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.documentation=https://ttdl-viewer.orlovsky.dev
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: GitHub release
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # --verify-tag refuses to invent a tag that is not on the remote, so a release can only ever
+      # describe a commit that was actually tagged.
+      - name: Create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          prerelease=""
+          case "$version" in *-*) prerelease="--prerelease" ;; esac
+
+          # --generate-notes prepends what --notes says to the commit list it builds.
+          notes=$(printf '```bash\ndocker pull %s:%s\n```\n\nlinux/amd64 and linux/arm64. Documentation is at <https://ttdl-viewer.orlovsky.dev>.' "$IMAGE" "$version")
+
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "$notes" \
+            $prerelease

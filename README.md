@@ -8,6 +8,8 @@ Nothing leaves the machine it runs on, and nothing here writes to an archive.
 
 **Documentation: [ttdl-viewer.orlovsky.dev](https://ttdl-viewer.orlovsky.dev)**
 
+[![CI](https://github.com/sadorlovsky/ttdl-viewer/actions/workflows/ci.yml/badge.svg)](https://github.com/sadorlovsky/ttdl-viewer/actions/workflows/ci.yml)
+
 </div>
 
 [ttdl](https://github.com/sadorlovsky/ttdl) leaves you a directory of thousands of opaque
@@ -95,6 +97,13 @@ nothing but `node:` builtins and its own files — and the archives are mounted 
 
 ```bash
 TTDL_ARCHIVES=$HOME/code/ttdl/downloads docker compose up -d --build
+```
+
+Each release is also pushed to GitHub Packages for `linux/amd64` and `linux/arm64`, so a NAS builds
+nothing itself:
+
+```bash
+docker pull ghcr.io/sadorlovsky/ttdl-viewer:0.1.0
 ```
 
 → [Running it in Docker](https://ttdl-viewer.orlovsky.dev/guides/docker/) ·

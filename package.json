@@ -9,6 +9,7 @@
 		"dev:web": "vite",
 		"build": "vite build && bun scripts/check-offline.ts",
 		"start": "NODE_ENV=production bun src/server/index.ts",
+		"release": "bun scripts/release.ts",
 		"fixtures": "bun scripts/make-fixtures.ts",
 		"check-offline": "bun scripts/check-offline.ts",
 		"test": "bun test",

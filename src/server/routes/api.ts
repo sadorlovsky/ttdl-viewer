@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+// package.json is the one place the version is written. `scripts/release.ts` bumps it and tags
+// the commit from it, and the Release workflow refuses to publish when the tag and this
+// disagree. The runtime image carries package.json for this import and nothing else.
+import { version as VERSION } from "../../../package.json";
 import { parseQuery } from "../../shared/filters.ts";
 import type { AuthorSummary } from "../../shared/types.ts";
 import { rankFuzzy } from "../index/fuzzy.ts";
 import { neighbors, queryPosts } from "../index/query.ts";
 import type { Registry } from "../index/registry.ts";
-
-const VERSION = "0.1.0";
 
 export function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
