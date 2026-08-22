@@ -38,8 +38,9 @@ LAN. `--host` defaults to `127.0.0.1` for exactly this reason; see
 
 ## The Docker and Synology instructions have not been run
 
-They are written from the Dockerfile and DSM's documented behaviour; the image has never been built,
-because no Docker daemon was available on the machine this was developed on.
+CI builds the image for `linux/amd64` and `linux/arm64` on every push to `main`, so it compiles and
+the offline guard passes inside it. No container has been started from it, and nobody has followed
+the DSM steps; those are written from the Dockerfile and DSM's documented behaviour.
 
 One assumption behind the image was verified: the server runs from `dist` plus `src/server` and
 `src/shared` with no `node_modules` present at all.

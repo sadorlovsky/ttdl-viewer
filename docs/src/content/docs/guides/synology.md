@@ -1,33 +1,66 @@
 ---
 title: Running it on a Synology NAS
-description: Container Manager on DSM 7, the mount permission that usually bites, and building on ARM models.
+description: Container Manager on DSM 7, a compose file that pulls the published image, and the mount permission that usually bites.
 ---
 
 DSM 7 with **Container Manager** installed. The archives already live on the NAS — typically a
 shared folder such as `/volume1/media/tiktok`.
 
-## Using Container Manager's UI (project)
+## Using the published image
 
-1. Copy this repository to the NAS, e.g. into `/volume1/docker/ttdl-viewer` (File Station, or
-   `git clone` over SSH).
-2. Container Manager → **Project** → **Create**. Set the path to that folder; it will pick up
-   `docker-compose.yml`.
-3. Edit the volume line so the left side is your archive share:
+The image is built for `linux/amd64` and `linux/arm64`, which covers the x86-64 models and the ARM
+ones, so the NAS pulls it and nothing is cloned or built there. Write one file,
+`/volume1/docker/ttdl-viewer/docker-compose.yml`:
 
-   ```yaml
-   volumes:
-     - /volume1/media/tiktok:/archives:ro
-   ```
+```yaml
+services:
+  ttdl-viewer:
+    image: ghcr.io/sadorlovsky/ttdl-viewer:0.1.0
+    container_name: ttdl-viewer
+    restart: unless-stopped
+    volumes:
+      # Left side: your archive share. The right side must stay /archives.
+      - /volume1/media/tiktok:/archives:ro
+    ports:
+      # Reachable from the NAS itself only. Use "4174:4174" to put it on the LAN,
+      # where nothing authenticates it.
+      - "127.0.0.1:4174:4174"
+```
 
-4. Decide the port line. `- "127.0.0.1:4174:4174"` keeps it reachable only from the NAS itself
-   (use an SSH tunnel or a VPN); `- "4174:4174"` puts it on your LAN, unauthenticated.
-5. Build and start. Open `http://<nas-ip>:4174` if you published it to the LAN.
+Then Container Manager → **Project** → **Create**, and set the path to that folder; it picks the
+file up. Over SSH it is:
 
-## Over SSH instead
+```bash
+cd /volume1/docker/ttdl-viewer
+sudo docker compose up -d
+```
+
+A newer version means editing the tag and pulling:
+
+```bash
+sudo docker compose pull && sudo docker compose up -d
+```
+
+[The tag table](/guides/docker/#the-published-image) says what `latest` and `edge` mean. Pin an
+exact version on a NAS you do not want changing under you.
+
+## Building it on the NAS instead
+
+Building is for running a modification. Copy this repository to `/volume1/docker/ttdl-viewer` (File
+Station, or `git clone` over SSH), leave the `build: .` line in the `docker-compose.yml` that comes
+with it, edit the volume and port lines as above, and:
 
 ```bash
 cd /volume1/docker/ttdl-viewer
 sudo docker compose up -d --build
+```
+
+Low-memory models can struggle with the Vite build step. If it is killed, build on your laptop for
+the NAS's platform and load the result:
+
+```bash
+docker buildx build --platform linux/arm64 -t ttdl-viewer . --load
+docker save ttdl-viewer | ssh nas 'sudo docker load'
 ```
 
 ## If it starts but shows zero archives
@@ -42,19 +75,6 @@ ls -ln /volume1/media/tiktok      # e.g.  drwx------ 1026 100
 
 ```yaml
 user: "1026:100"
-```
-
-## Build architecture
-
-Most Synology models are x86-64 and build natively. On an ARM model (DS220j and similar), build on
-the NAS itself as above rather than pushing an amd64 image to it.
-
-Low-memory models can struggle with the Vite build step; if it is killed, build the image on your
-laptop for the right platform and load it:
-
-```bash
-docker buildx build --platform linux/arm64 -t ttdl-viewer . --load
-docker save ttdl-viewer | ssh nas 'sudo docker load'
 ```
 
 ## Behind DSM's reverse proxy
