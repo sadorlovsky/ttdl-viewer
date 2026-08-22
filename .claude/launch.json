@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "app",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4173
+    },
+    {
       "name": "docs",
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "dev", "--", "--port", "4325"],
