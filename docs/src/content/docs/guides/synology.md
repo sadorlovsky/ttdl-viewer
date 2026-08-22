@@ -80,11 +80,19 @@ docker buildx build --platform linux/arm64 -t ttdl-viewer . --load
 docker save ttdl-viewer | ssh nas 'sudo docker load'
 ```
 
-## If it starts but shows zero archives
+## If it restarts over and over
 
-The mount is almost certainly unreadable to the container's non-root `bun` user. Synology shares
-are often owned by a specific DSM account rather than being world-readable. Check the numeric owner
-and tell compose to match it:
+The log will end in `EACCES: permission denied` and the name of the mount:
+
+```
+Cannot read /archives
+
+The directory is there; listing it was refused.
+```
+
+The container runs as the non-root `bun` user, and Synology shares are often owned by a specific
+DSM account rather than being world-readable. Check the numeric owner over SSH and tell compose to
+match it:
 
 ```bash
 ls -ln /volume1/media/tiktok      # e.g.  drwx------ 1026 100
@@ -93,6 +101,9 @@ ls -ln /volume1/media/tiktok      # e.g.  drwx------ 1026 100
 ```yaml
 user: "1026:100"
 ```
+
+There is no way to read those numbers from DSM's interface, so this one step needs SSH. Control
+Panel → Terminal & SNMP → **Enable SSH service** if it is off.
 
 ## Behind DSM's reverse proxy
 

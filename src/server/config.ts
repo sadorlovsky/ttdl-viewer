@@ -1,4 +1,4 @@
-import { existsSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { rememberedRoot, settingsPath } from "./settings.ts";
@@ -81,6 +81,32 @@ function isDir(path: string): boolean {
 }
 
 /**
+ * A root that exists but cannot be listed.
+ *
+ * `statSync` on a directory needs no permission on the directory itself, so an unreadable root
+ * passes every check above and fails later, inside the scan, as an EACCES stack trace. In a
+ * container that is the normal outcome of mounting a share owned by one account: the process is
+ * `bun`, the share is not world-readable, and nothing that has been said so far is wrong.
+ */
+function requireListable(root: string): void {
+	try {
+		readdirSync(root);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "EACCES") {
+			throw error;
+		}
+		throw new Error(
+			`Cannot read ${root}\n\n` +
+				"The directory is there; listing it was refused. Running in a container, this is the " +
+				"mounted share being readable only to its owner — find that owner with `ls -ln` and " +
+				"give the container the same numeric ids:\n\n" +
+				'  user: "1026:100"\n\n' +
+				"https://ttdl-viewer.orlovsky.dev/guides/synology/",
+		);
+	}
+}
+
+/**
  * Resolve where the archives live.
  *
  * In order: what this run was told, what a previous run was told, then the places archives are
@@ -95,6 +121,7 @@ function resolveRoot(explicit: string | undefined): { root: string; from: RootFr
 	if (explicit) {
 		const abs = isAbsolute(explicit) ? explicit : resolve(process.cwd(), explicit);
 		if (isDir(abs)) {
+			requireListable(abs);
 			return { root: realpathSync(abs), from: "flag" };
 		}
 		throw new Error(
@@ -105,6 +132,7 @@ function resolveRoot(explicit: string | undefined): { root: string; from: RootFr
 
 	const remembered = rememberedRoot();
 	if (remembered && isDir(remembered)) {
+		requireListable(remembered);
 		return { root: remembered, from: "settings" };
 	}
 
