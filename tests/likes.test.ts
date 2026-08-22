@@ -8,6 +8,7 @@ import {
 	readLikedState,
 	readLikes,
 } from "../src/server/index/likes.ts";
+import { STATE_DIR } from "../src/server/index/state.ts";
 
 const LIKED = "7673781569403751713";
 const FAVED = "7665402245407722773";
@@ -95,8 +96,8 @@ describe("findLikes", () => {
 	/** An archive root with one real ttdl archive in it, and whatever else a test wants. */
 	function root(): string {
 		const dir = mkdtempSync(join(tmpdir(), "ttdl-root-"));
-		const archive = join(dir, "someone");
-		mkdirSync(archive);
+		const archive = join(dir, "someone", STATE_DIR);
+		mkdirSync(archive, { recursive: true });
 		writeFileSync(join(archive, "archive.txt"), `${LIKED}\n`);
 		writeFileSync(join(archive, ".all_ids.txt"), `${LIKED}\n`);
 		return dir;
@@ -178,7 +179,8 @@ describe("readLikedState", () => {
 	function archive(contents: string | null): string {
 		const dir = mkdtempSync(join(tmpdir(), "ttdl-state-"));
 		if (contents !== null) {
-			writeFileSync(join(dir, ".liked.json"), contents);
+			mkdirSync(join(dir, STATE_DIR));
+			writeFileSync(join(dir, STATE_DIR, ".liked.json"), contents);
 		}
 		return dir;
 	}

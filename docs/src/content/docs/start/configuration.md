@@ -61,11 +61,16 @@ first-run problem.
 generates, and a checkout that has one would otherwise shadow the real archives with fabricated
 posts — which reads as data loss rather than as the wrong directory.
 
-Each immediate subdirectory of the root is one archive. A directory holding a `.source` file is a
-**list** archive (`downloads/liked/`) — many authors in one flat folder, with the folder name
+Each immediate subdirectory of the root is one archive. A directory holding a `.ttdl/.source` file
+is a **list** archive (`downloads/liked/`) — many authors in one flat folder, with the folder name
 meaning nothing. Anything else is a **profile** archive, where the folder name is the handle.
 
-A directory carrying none of ttdl's bookkeeping (`archive.txt`, `.all_ids.txt`) is not an archive
-at all, and is kept out of the library rather than appearing there as a profile with zero posts.
-That is decided by `stat` rather than by listing — the difference between 3 ms and 411 ms on the
+A directory carrying none of ttdl's bookkeeping — no `.ttdl/` — is not an archive at all, and is
+kept out of the library rather than appearing there as a profile with zero posts. That is decided
+by `stat` rather than by listing: the difference between under a millisecond and 411 ms on the
 archives this was written against.
+
+ttdl kept its bookkeeping flat, beside the videos, before the `.ttdl/` layout, and moves an archive
+over on the first mutating command run against it. Only `.ttdl/` is read here — see
+[reading ttdl's format](/reference/archive-format/) for what an archive still waiting on that move
+looks like.

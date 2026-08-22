@@ -20,6 +20,8 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { LOUDNESS_FILE } from "../src/server/index/loudness.ts";
+import { PROFILE_AVATAR, PROFILE_CARD, STATE_DIR } from "../src/server/index/state.ts";
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => {
@@ -479,8 +481,25 @@ class ArchiveWriter {
 		writeFileSync(join(this.dir, name), content);
 	}
 
+	/**
+	 * One of ttdl's archive-level state files, in the `.ttdl/` ttdl keeps them in.
+	 *
+	 * The directory is created lazily, as ttdl creates it: a directory nothing has written state
+	 * into — the unrelated-files one below — has to look like something that is not an archive,
+	 * which is exactly what an empty `.ttdl/` sitting in it would stop it looking like.
+	 */
+	writeState(name: string, content: string): void {
+		mkdirSync(join(this.dir, STATE_DIR), { recursive: true });
+		writeFileSync(join(this.dir, STATE_DIR, name), content);
+	}
+
 	copy(name: string, src: string): void {
 		clone(src, join(this.dir, name));
+	}
+
+	copyState(name: string, src: string): void {
+		mkdirSync(join(this.dir, STATE_DIR), { recursive: true });
+		clone(src, join(this.dir, STATE_DIR, name));
 	}
 
 	writeBytes(name: string, content: Uint8Array): void {
@@ -504,8 +523,8 @@ class ArchiveWriter {
 	 * today's date would never exercise the thing that makes it honest.
 	 */
 	card(author: Author, picture: string): void {
-		this.write(
-			"profile.json",
+		this.writeState(
+			PROFILE_CARD,
 			`${JSON.stringify(
 				{
 					fetched_at: 1_787_000_000,
@@ -532,7 +551,7 @@ class ArchiveWriter {
 				2,
 			)}\n`,
 		);
-		this.copy("avatar.jpg", picture);
+		this.copyState(PROFILE_AVATAR, picture);
 	}
 
 	/**
@@ -585,36 +604,39 @@ class ArchiveWriter {
 			};
 		});
 
-		this.write(
-			"loudness.json",
+		this.writeState(
+			LOUDNESS_FILE,
 			`${JSON.stringify({ target_i: target, target_tp: ceiling, posts }, null, 2)}\n`,
 		);
 	}
 
 	finish(source: string | null): void {
 		const ids = this.posts.map((p) => p.id).sort();
-		this.write("archive.txt", `${ids.map((id) => `tiktok ${id}`).join("\n")}\n`);
-		this.write(
+		this.writeState("archive.txt", `${ids.map((id) => `tiktok ${id}`).join("\n")}\n`);
+		this.writeState(
 			".all_ids.txt",
 			`${[...ids, ...this.missing.map(([id]) => id)].sort().join("\n")}\n`,
 		);
-		this.write(
+		this.writeState(
 			"missing.txt",
 			`${this.missing
 				.map(([id, ts, err]) => `${id}  ${new Date(ts * 1000).toISOString().slice(0, 10)}  ${err}`)
 				.join("\n")}\n`,
 		);
-		this.write(
+		this.writeState(
 			"rename-map.txt",
 			"old-download-name-7300000000000000001.mp4\t20240101_7300000000000000001_adopted.mp4\n",
 		);
-		this.write(
+		this.writeState(
 			"ttdl.log",
 			"[download] Downloading playlist\n[info] Writing video metadata as JSON\n",
 		);
 		if (source !== null) {
-			this.write(".source", `${source}\n`);
+			this.writeState(".source", `${source}\n`);
 		}
+		// Written last, exactly as ttdl's migration writes it last: its presence is the claim that
+		// everything else in here is where the current layout says it should be.
+		this.writeState("version", "1\n");
 	}
 }
 

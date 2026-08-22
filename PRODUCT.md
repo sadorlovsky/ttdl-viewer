@@ -68,11 +68,14 @@ claim that the build fails when a remote URL enters the bundle.
 
 ## Operating Context
 
-- **The archive root** holds one subdirectory per archive. A directory containing a `.source` file
-  is a **list** archive (many authors, flat, folder name meaningless); anything else is a
+- **The archive root** holds one subdirectory per archive, and each archive keeps everything ttdl
+  records about it in one subdirectory of its own, `.ttdl/` — the card, the counts, the gains, the
+  lock. Only that layout is read: ttdl migrates a pre-`.ttdl` archive on the first mutating command,
+  and a viewer that never writes cannot migrate one itself. A directory containing a `.ttdl/.source`
+  file is a **list** archive (many authors, flat, folder name meaningless); anything else is a
   **profile** archive, where the folder name is the handle.
 - **ttdl and the viewer run at the same time.** A rescan can land mid-scroll, which is why
-  pagination is keyset rather than offset, and why a `.lock` file surfaces as a "downloading now"
+  pagination is keyset rather than offset, and why a `.ttdl/.lock` file surfaces as a "downloading now"
   banner.
 - **The index lives in memory and is built at startup.** New posts appear after a restart or a
   `POST /api/archives/<id>/rescan`. There is no filesystem watcher.

@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { ProfileCard } from "../../shared/types.ts";
-import { PROFILE_CARD } from "./parse-name.ts";
+import { PROFILE_CARD, statePath } from "./state.ts";
 
 function text(value: unknown): string | null {
 	return typeof value === "string" && value.trim() !== "" ? value : null;
@@ -12,7 +11,7 @@ function num(value: unknown): number | null {
 }
 
 /**
- * Read ttdl's `profile.json`.
+ * Read ttdl's `.ttdl/profile.json`.
  *
  * Checked field by field rather than cast. This file is written by another program and can arrive
  * from storage as well, so an older format or a truncated copy has to degrade to "no card" instead
@@ -23,7 +22,7 @@ function num(value: unknown): number | null {
 export function readCard(dir: string): ProfileCard | null {
 	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(join(dir, PROFILE_CARD), "utf8"));
+		raw = JSON.parse(readFileSync(statePath(dir, PROFILE_CARD), "utf8"));
 	} catch {
 		return null;
 	}

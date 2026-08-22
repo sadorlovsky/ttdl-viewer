@@ -3,6 +3,32 @@ title: Reading ttdl's format
 description: Three details that break a naive indexer, two deliberate divergences, and the author's card.
 ---
 
+An archive is a directory of media with one subdirectory in it. The media and the per-post
+sidecars — `.info.json`, covers, `*_photo.json`, `*_photo.complete` — sit at the top; everything
+ttdl records *about* the archive lives in `.ttdl/`, and that is the only place this viewer looks
+for it. ttdl's own [state files reference](https://ttdl.orlovsky.dev/reference/state-files/) is the
+contract for those files, and this is written against it.
+
+```
+downloads/username/
+  20260814_7673909736131038495_Caption.mp4          read as a post
+  20260814_7673909736131038495_Caption.info.json    its metadata
+  20260814_7673909736131038495_Caption.jpg          its cover
+  .ttdl/
+    archive.txt  .all_ids.txt  missing.txt          the counts under the header
+    .source                                         what makes it a list archive
+    .liked.json                                     saving dates, when ttdl has them
+    loudness.json                                   the R128 gains
+    profile.json  avatar.jpg                        the author's card
+    .lock                                           a run in progress, right now
+```
+
+ttdl kept all of that flat, beside the videos, until it introduced `.ttdl/`; it moves an archive
+over on the first mutating command it runs against one. **The flat layout is not read here.** This
+viewer never writes to an archive and so can never migrate one, which would make reading the old
+spot a fallback nothing could ever retire — so an archive ttdl has not touched since the move shows
+its posts and nothing else: no card, no counts, no list marker, until one ttdl command moves it.
+
 The format is only specified by `ttdl.py` itself, and three details of it will break a naive
 indexer. They are ported deliberately, and locked down by
 [`tests/complete.test.ts`](https://github.com/sadorlovsky/blob/main/tests/complete.test.ts),
@@ -43,9 +69,10 @@ that wants it.
 
 ## The author's card
 
-`profile.json` and `avatar.jpg`, which ttdl's `get` writes for a profile archive, are read as the
-archive's own files rather than as any post's: they are picked out by name, and `parseName` never
-sees them.
+`.ttdl/profile.json` and `.ttdl/avatar.jpg`, which ttdl's `get` writes for a profile archive, are
+read as the archive's own files rather than as any post's — they describe the account, not a post,
+and `parseName` never sees them. The picture is also the one file served from `.ttdl/` rather than
+from the archive itself.
 
 The card is the one thing in an archive describing something that moves — a nickname, a bio, a
 follower count — so it travels with the date ttdl took it, and the header prints that date beside

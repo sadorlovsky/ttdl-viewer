@@ -14,6 +14,7 @@ import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Registry } from "../src/server/index/registry.ts";
+import { STATE_DIR } from "../src/server/index/state.ts";
 
 function postId(tail: number, timestamp = 1_704_067_200): string {
 	return ((BigInt(timestamp) << 32n) | BigInt(tail)).toString();
@@ -37,6 +38,12 @@ function addPost(where: string, tail: number): void {
 	writeFileSync(join(where, `20240101_${postId(tail)}_clip.mp4`), "video");
 }
 
+/** One of ttdl's archive-level state files, in the `.ttdl/` it keeps them in. */
+function writeState(where: string, name: string, content: string): void {
+	mkdirSync(join(where, STATE_DIR), { recursive: true });
+	writeFileSync(join(where, STATE_DIR, name), content);
+}
+
 function built(): Registry {
 	const registry = new Registry(root);
 	registry.rebuild();
@@ -46,11 +53,11 @@ function built(): Registry {
 describe("when each post was saved", () => {
 	/** ttdl marks an archive built from a list with `.source`; a profile archive has none. */
 	function asList(where: string): void {
-		writeFileSync(join(where, ".source"), "downloads/ids.txt\n");
+		writeState(where, ".source", "downloads/ids.txt\n");
 	}
 
 	function record(where: string, id: string, at: number): void {
-		writeFileSync(join(where, ".liked.json"), JSON.stringify({ [id]: { at, kind: "like" } }));
+		writeState(where, ".liked.json", JSON.stringify({ [id]: { at, kind: "like" } }));
 	}
 
 	test("comes from what ttdl recorded beside the archive", () => {
@@ -170,7 +177,7 @@ describe("an archive that changed on disk", () => {
 describe("an archive with a download in progress", () => {
 	test("is held to an interval instead of reindexed per request", () => {
 		addPost(dir, 1);
-		writeFileSync(join(dir, ".lock"), "4242");
+		writeState(dir, ".lock", "4242");
 		const registry = built();
 		const first = registry.get("acc");
 
@@ -182,14 +189,14 @@ describe("an archive with a download in progress", () => {
 
 	test("is reindexed as soon as the lock is gone", () => {
 		addPost(dir, 1);
-		writeFileSync(join(dir, ".lock"), "4242");
+		writeState(dir, ".lock", "4242");
 		const registry = built();
 		registry.get("acc");
 
 		Bun.sleepSync(2);
 		addPost(dir, 2);
 		// The run finishing is the change most worth seeing, so it does not wait out the interval.
-		unlinkSync(join(dir, ".lock"));
+		unlinkSync(join(dir, STATE_DIR, ".lock"));
 
 		expect(registry.get("acc")?.posts).toHaveLength(2);
 	});

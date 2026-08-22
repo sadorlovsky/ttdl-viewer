@@ -10,7 +10,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { readCard } from "../src/server/index/profile.ts";
+import { Registry } from "../src/server/index/registry.ts";
 import { scanArchive } from "../src/server/index/scan.ts";
+import { STATE_DIR } from "../src/server/index/state.ts";
+import { mediaRoutes } from "../src/server/routes/media.ts";
 
 let root: string;
 let dir: string;
@@ -26,7 +29,12 @@ afterEach(() => {
 });
 
 const write = (name: string, content: string) => writeFileSync(join(dir, name), content);
-const writeCard = (card: unknown) => write("profile.json", JSON.stringify(card));
+/** The card and the picture live in the archive's `.ttdl/`, which is where they are read from. */
+const writeState = (name: string, content: string) => {
+	mkdirSync(join(dir, STATE_DIR), { recursive: true });
+	writeFileSync(join(dir, STATE_DIR, name), content);
+};
+const writeCard = (card: unknown) => writeState("profile.json", JSON.stringify(card));
 
 /** The shape ttdl actually writes, with an invented account in it. */
 const REAL_CARD = {
@@ -63,7 +71,7 @@ describe("readCard", () => {
 	});
 
 	test("is null for a truncated file", () => {
-		write("profile.json", '{"fetched_at": 1787');
+		writeState("profile.json", '{"fetched_at": 1787');
 
 		expect(readCard(dir)).toBeNull();
 	});
@@ -99,7 +107,7 @@ describe("readCard", () => {
 describe("scanning", () => {
 	test("finds the card and the picture without treating them as posts", () => {
 		writeCard(REAL_CARD);
-		write("avatar.jpg", "picture");
+		writeState("avatar.jpg", "picture");
 		write("20240101_7673909736131038495_clip.mp4", "video");
 
 		const scan = scanArchive(dirname(dir), basename(dir));
@@ -112,10 +120,10 @@ describe("scanning", () => {
 	});
 
 	test("moves the listing hash when the picture is replaced", () => {
-		write("avatar.jpg", "old picture");
+		writeState("avatar.jpg", "old picture");
 		const before = scanArchive(dirname(dir), basename(dir)).listingHash;
 
-		write("avatar.jpg", "new picture, same name");
+		writeState("avatar.jpg", "new picture, same name");
 
 		// Same filename, so without this the cached index would keep serving the old face.
 		expect(scanArchive(dirname(dir), basename(dir)).listingHash).not.toBe(before);
@@ -128,5 +136,41 @@ describe("scanning", () => {
 
 		expect(scan.card).toBeNull();
 		expect(scan.avatar).toBeNull();
+	});
+});
+
+describe("serving the picture", () => {
+	/** The route as the router calls it: a Request with the matched params on it. */
+	function fetchAvatar(archiveId: string): Response {
+		const registry = new Registry(root);
+		registry.rebuild();
+		const handler = mediaRoutes(registry)["/media/:archiveId/avatar"];
+		if (!handler) {
+			throw new Error("the avatar route is gone, which is itself the failure");
+		}
+		const request = Object.assign(new Request(`http://127.0.0.1/media/${archiveId}/avatar`), {
+			params: { archiveId },
+		});
+		return handler(request);
+	}
+
+	test("reads it out of .ttdl/, where the scanner found it", async () => {
+		write("20240101_7673909736131038495_clip.mp4", "video");
+		writeCard(REAL_CARD);
+		writeState("avatar.jpg", "picture bytes");
+
+		const response = fetchAvatar("archive");
+
+		// The one file this serves from `.ttdl/` rather than from the archive itself. The scanner
+		// finding it and the route reading it are two different joins, and only the second one is
+		// what the browser gets — an avatar that indexes but 404s looks exactly like no avatar.
+		expect(response.status).toBe(200);
+		expect(await response.text()).toBe("picture bytes");
+	});
+
+	test("says so plainly when the archive has none", () => {
+		write("20240101_7673909736131038495_clip.mp4", "video");
+
+		expect(fetchAvatar("archive").status).toBe(404);
 	});
 });

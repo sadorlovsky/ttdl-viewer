@@ -28,7 +28,7 @@
 
 import { type Dirent, existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { STATE_FILES } from "./parse-name.ts";
+import { STATE_DIR, statePath } from "./state.ts";
 
 export type LikeKind = "like" | "favorite";
 
@@ -165,7 +165,7 @@ export function readLikes(dir: string | null): LikesIndex {
 	return dir ? indexFiles(findExports(dir)) : new Map();
 }
 
-/** ttdl's own name for the cache it writes beside an archive (ttdl.py: LIKED_STATE). */
+/** ttdl's own name for the cache it writes into an archive's `.ttdl/` (ttdl.py: LIKED_STATE). */
 export const LIKED_STATE = ".liked.json";
 
 /**
@@ -182,7 +182,7 @@ export const LIKED_STATE = ".liked.json";
 export function readLikedState(dir: string): LikesIndex | null {
 	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(join(dir, LIKED_STATE), "utf8"));
+		raw = JSON.parse(readFileSync(statePath(dir, LIKED_STATE), "utf8"));
 	} catch {
 		// Absent, unreadable, or half-written — all of which mean "ask the export instead" rather
 		// than "this archive has no saved dates", which would be a different and wrong claim.
@@ -210,20 +210,15 @@ export function readLikedState(dir: string): LikesIndex | null {
 /**
  * Whether a directory is one of ttdl's archives rather than something living beside them.
  *
- * ttdl writes its own bookkeeping into every archive it creates — archive.txt and .all_ids.txt at
- * the very least — and an unpacked export carries none of it. Asking by stat rather than by
- * listing is what makes searching the root affordable at all: the archives here hold up to
- * fourteen thousand files each, and listing them all to find a two-file export costs 411 ms where
- * these stats cost 3. A directory ttdl has created but not yet written state into is walked
- * instead of skipped, which is harmless — it holds no export, so the walk finds nothing.
+ * ttdl keeps its bookkeeping for an archive in one subdirectory, `.ttdl/`, and an unpacked export
+ * carries none of it. Asking by stat rather than by listing is what makes searching the root
+ * affordable at all: the archives here hold up to fourteen thousand files each, and listing them
+ * all to find a two-file export costs 411 ms where this stat costs under 1. A directory ttdl has
+ * created but not yet written state into is walked instead of skipped, which is harmless — it
+ * holds no export, so the walk finds nothing.
  */
 function isArchiveDir(dir: string): boolean {
-	for (const name of STATE_FILES) {
-		if (existsSync(join(dir, name))) {
-			return true;
-		}
-	}
-	return false;
+	return existsSync(join(dir, STATE_DIR));
 }
 
 /**

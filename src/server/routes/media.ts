@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { join } from "node:path";
 import { serveFile } from "../http/range.ts";
 import type { Registry } from "../index/registry.ts";
+import { statePath } from "../index/state.ts";
 
 function fail(code: string, message: string, status: number): Response {
 	return new Response(JSON.stringify({ error: { code, message } }), {
@@ -81,7 +82,10 @@ export function mediaRoutes(registry: Registry): Record<string, Handler> {
 
 	/**
 	 * The archive's own picture, which belongs to no post and so does not go through `resolve`.
-	 * The same rule holds: the name comes from the scanner, never from the request.
+	 *
+	 * It is the one file served from `.ttdl/` rather than from the archive itself — it describes
+	 * the account, not a post. The same rule holds either way: the name comes from the scanner,
+	 * never from the request.
 	 */
 	const avatar = (request: Request & { params: Record<string, string> }): Response => {
 		const indexed = registry.get(request.params.archiveId ?? "");
@@ -91,7 +95,7 @@ export function mediaRoutes(registry: Registry): Record<string, Handler> {
 		if (!indexed.scan.avatar) {
 			return fail("MEDIA_NOT_FOUND", "This archive has no avatar", 404);
 		}
-		const path = join(indexed.scan.dir, indexed.scan.avatar.name);
+		const path = statePath(indexed.scan.dir, indexed.scan.avatar.name);
 		try {
 			const st = statSync(path);
 			return serveFile({ path, size: st.size, mtimeMs: st.mtimeMs, request });

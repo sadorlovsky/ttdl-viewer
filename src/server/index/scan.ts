@@ -1,14 +1,8 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { LOUDNESS_FILE } from "./loudness.ts";
-import {
-	type MediaExt,
-	PROFILE_AVATAR,
-	PROFILE_CARD,
-	parseName,
-	STATE_FILES,
-	type ThumbExt,
-} from "./parse-name.ts";
+import { type MediaExt, parseName, type ThumbExt } from "./parse-name.ts";
+import { PROFILE_AVATAR, PROFILE_CARD, STATE_DIR, statePath } from "./state.ts";
 
 export interface FileStat {
 	name: string;
@@ -33,13 +27,13 @@ export interface ArchiveScan {
 	name: string;
 	dir: string;
 	groups: Map<string, FileGroup>;
-	/** State files present in the archive root, by name. */
+	/** State files present in the archive's `.ttdl/`, by name. */
 	stateFiles: Set<string>;
 	/** Contents of `.source`, trimmed — present only for list-built archives. */
 	source: string | null;
 	/** ttdl holds a .lock for the duration of a run. */
 	locked: boolean;
-	/** ttdl's author card and picture, when `get` recorded them. */
+	/** ttdl's author card and picture from `.ttdl/`, when `get` recorded them. */
 	card: FileStat | null;
 	avatar: FileStat | null;
 	/** Sorted `name\0size\0mtime` digest of the whole listing — the tier-1 cache key. */
@@ -83,46 +77,74 @@ function fnv1a(parts: string[]): string {
 }
 
 /**
+ * Read `<archive>/.ttdl/` — what ttdl records about the archive rather than about a post.
+ *
+ * A second readdir, and a cheap one: the state directory holds a couple of dozen files against the
+ * archive's ten thousand. Only the card and the picture are stat'd, because only they are served.
+ *
+ * An unreadable or absent directory is a complete answer, not a failure: it is what a directory
+ * that is not an archive looks like, and what an archive ttdl has not written to since the layout
+ * moved looks like. Both read as "no state here" rather than taking the archive out of the index.
+ */
+function scanState(
+	dir: string,
+	listing: string[],
+): { names: Set<string>; card: FileStat | null; avatar: FileStat | null } {
+	const names = new Set<string>();
+	let card: FileStat | null = null;
+	let avatar: FileStat | null = null;
+
+	let entries: Dirent[];
+	try {
+		entries = readdirSync(join(dir, STATE_DIR), { withFileTypes: true });
+	} catch {
+		return { names, card, avatar };
+	}
+
+	for (const entry of entries) {
+		if (!entry.isFile()) {
+			continue;
+		}
+		names.add(entry.name);
+		if (entry.name !== PROFILE_CARD && entry.name !== PROFILE_AVATAR) {
+			continue;
+		}
+		const st = statOrNull(statePath(dir, entry.name));
+		if (!st) {
+			continue;
+		}
+		// Into the listing hash as well: a replaced picture keeps its name, so without the mtime a
+		// rescan would go on serving the old one from a cached index.
+		listing.push(`${STATE_DIR}/${entry.name}\0${st.size}\0${Math.floor(st.mtimeMs)}`);
+		const stat = { name: entry.name, size: st.size, mtimeMs: st.mtimeMs };
+		if (entry.name === PROFILE_CARD) {
+			card = stat;
+		} else {
+			avatar = stat;
+		}
+	}
+	return { names, card, avatar };
+}
+
+/**
  * Read one archive directory into file groups.
  *
- * One readdir, then `stat` only where the answer matters: carousel images need a size (ttdl's
- * completeness rule ignores empty ones), media needs size and mtime, and `.info.json` needs both
- * for per-file cache invalidation. Covers and markers are never stat'd.
+ * One readdir over the archive and one over its `.ttdl/`, then `stat` only where the answer
+ * matters: carousel images need a size (ttdl's completeness rule ignores empty ones), media needs
+ * size and mtime, and `.info.json` needs both for per-file cache invalidation. Covers and markers
+ * are never stat'd.
  */
 export function scanArchive(root: string, name: string): ArchiveScan {
 	const dir = join(root, name);
 	const groups = new Map<string, FileGroup>();
-	const stateFiles = new Set<string>();
 	const listing: string[] = [];
 	let bytes = 0;
-	let card: FileStat | null = null;
-	let avatar: FileStat | null = null;
 
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		if (!entry.isFile()) {
 			continue;
 		}
 		const fileName = entry.name;
-		if (STATE_FILES.has(fileName)) {
-			stateFiles.add(fileName);
-			continue;
-		}
-		if (fileName === PROFILE_CARD || fileName === PROFILE_AVATAR) {
-			const st = statOrNull(join(dir, fileName));
-			if (st) {
-				const stat = { name: fileName, size: st.size, mtimeMs: st.mtimeMs };
-				// Into the listing hash as well: a replaced picture keeps its name, so without the
-				// mtime a rescan would go on serving the old one from a cached index.
-				listing.push(`${fileName}\0${st.size}\0${Math.floor(st.mtimeMs)}`);
-				if (fileName === PROFILE_CARD) {
-					card = stat;
-				} else {
-					avatar = stat;
-				}
-			}
-			continue;
-		}
-
 		const parsed = parseName(fileName);
 		if (!parsed) {
 			continue;
@@ -219,10 +241,12 @@ export function scanArchive(root: string, name: string): ArchiveScan {
 		}
 	}
 
+	const { names: stateFiles, card, avatar } = scanState(dir, listing);
+
 	let source: string | null = null;
 	if (stateFiles.has(".source")) {
 		try {
-			source = readFileSync(join(dir, ".source"), "utf8").trim() || null;
+			source = readFileSync(statePath(dir, ".source"), "utf8").trim() || null;
 		} catch {
 			source = null;
 		}
@@ -265,8 +289,9 @@ export function readExpected(dir: string, stateFile: string | undefined): number
 /**
  * State files whose contents the index depends on, and which ttdl rewrites in place.
  *
- * Deliberately not all of STATE_FILES: ttdl.log grows on every request a run makes, so including
- * it would report a change whenever ttdl is merely running, and rename-map.txt is never read here.
+ * Deliberately not everything `.ttdl/` holds: ttdl.log grows on every request a run makes and
+ * .run.json is rewritten throughout one, so either would report a change whenever ttdl is merely
+ * running; rename-map.txt and the report are never read here.
  */
 const STAMP_FILES = [
 	"archive.txt",
@@ -285,25 +310,33 @@ const STAMP_FILES = [
 ];
 
 /**
- * A cheap probe for "did anything change here" — seven stats against readdir's ten thousand.
+ * A cheap probe for "did anything change here" — nine stats against readdir's ten thousand.
  *
  * Measured on a 10,061-file archive: this takes 0.02 ms where a full listing takes 89 ms and a
  * reindex 780 ms, which is what makes it affordable on the way into a request.
  *
- * The directory's own mtime covers files appearing and disappearing — what a download does. It
- * does not move when a file is rewritten in place, so the state files are stat'd alongside it:
- * archive.txt grows line by line during a run and `check` rewrites it whole. Absence is recorded
- * too, since a .lock that vanished means a run has just finished.
+ * Two directories are stat'd, because a change lands in one or the other and neither sees the
+ * other's. The archive's own mtime covers media appearing and disappearing — what a download does;
+ * `.ttdl/`'s covers a state file being created or removed, which is all `check` leaves behind when
+ * it clears missing.txt. Neither moves when a file is rewritten in place, so the state files are
+ * stat'd individually alongside them: archive.txt grows line by line during a run, and
+ * `ttdl.py loudness` over a finished archive touches nothing else at all. Absence is recorded too,
+ * since a .lock that vanished means a run has just finished.
  */
 export function archiveStamp(root: string, name: string): string {
 	const dir = join(root, name);
 	const parts: string[] = [];
-	for (const entry of ["", ...STAMP_FILES]) {
+	const paths: Array<[string, string]> = [
+		["", dir],
+		[STATE_DIR, join(dir, STATE_DIR)],
+		...STAMP_FILES.map((file): [string, string] => [file, statePath(dir, file)]),
+	];
+	for (const [label, path] of paths) {
 		try {
-			const st = statSync(entry ? join(dir, entry) : dir);
-			parts.push(`${entry}\0${st.size}\0${Math.floor(st.mtimeMs)}`);
+			const st = statSync(path);
+			parts.push(`${label}\0${st.size}\0${Math.floor(st.mtimeMs)}`);
 		} catch {
-			parts.push(`${entry}\0-`);
+			parts.push(`${label}\0-`);
 		}
 	}
 	return parts.join("|");

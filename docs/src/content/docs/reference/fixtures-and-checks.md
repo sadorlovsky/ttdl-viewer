@@ -14,7 +14,9 @@ bun run fixtures
 ```
 
 That writes `fixtures/downloads/` with a profile archive, a multi-author list archive, an empty
-archive, a directory of unrelated files, and a TikTok data export.
+archive, a directory of unrelated files, and a TikTok data export. Archive-level state — the card
+and picture, the counts, `.source`, the loudness sidecar — goes into each archive's `.ttdl/`,
+where ttdl keeps it and where the indexer reads it.
 
 The profile archive deliberately contains every edge case the format can produce:
 

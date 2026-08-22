@@ -5,8 +5,8 @@ description: EBU R128 gains from ttdl, applied through element volume or a WebAu
 
 TikTok mixes wildly — a whispered voiceover sits next to something compressed into a wall — so
 watching an archive in order means riding the volume knob. ttdl measures every post to
-[EBU R128](https://tech.ebu.ch/publications/r128) and writes the numbers beside the media as
-`loudness.json`, without re-encoding anything. The viewer reads that file and plays each post at
+[EBU R128](https://tech.ebu.ch/publications/r128) and writes the numbers into the archive's
+`.ttdl/loudness.json`, without re-encoding anything. The viewer reads that file and plays each post at
 the level it asks for.
 
 ## There is nothing to configure

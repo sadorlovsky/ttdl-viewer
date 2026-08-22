@@ -14,6 +14,7 @@ import {
 	readExpected,
 	scanArchive,
 } from "./scan.ts";
+import { statePath } from "./state.ts";
 
 /** Where an archive's saving dates came from — for the startup line, not for the API. */
 export type LikedFrom = "ttdl" | "export" | null;
@@ -30,12 +31,12 @@ export interface IndexedArchive {
 }
 
 /** Count the lines of one of ttdl's state files, so the UI can show ttdl's own view of the gap. */
-function countLines(dir: string, name: string, present: boolean): number {
-	if (!present) {
+function countLines(scan: ArchiveScan, name: string): number {
+	if (!scan.stateFiles.has(name)) {
 		return 0;
 	}
 	try {
-		const text = readFileSync(join(dir, name), "utf8");
+		const text = readFileSync(statePath(scan.dir, name), "utf8");
 		return text.split("\n").filter((line) => line.trim() !== "").length;
 	} catch {
 		return 0;
@@ -142,9 +143,9 @@ function indexArchive(root: string, name: string, fallback: LikesIndex): Indexed
 		incomplete: posts.filter((p) => p.status === "incomplete").length,
 		ghosts,
 		withoutInfo,
-		archived: countLines(scan.dir, "archive.txt", scan.stateFiles.has("archive.txt")),
-		known: countLines(scan.dir, ".all_ids.txt", scan.stateFiles.has(".all_ids.txt")),
-		missing: countLines(scan.dir, "missing.txt", scan.stateFiles.has("missing.txt")),
+		archived: countLines(scan, "archive.txt"),
+		known: countLines(scan, ".all_ids.txt"),
+		missing: countLines(scan, "missing.txt"),
 	};
 
 	const authors = collectAuthors(posts);
@@ -283,7 +284,7 @@ export class Registry {
 		// Something moved. A run rewrites its directory continuously, so an archive being written
 		// to right now is held to an interval rather than reindexed per request — but only while
 		// the lock is still there, because the run ending is itself the change most worth seeing.
-		if (existsSync(join(this.root, name, ".lock"))) {
+		if (existsSync(statePath(join(this.root, name), ".lock"))) {
 			if (Date.now() - (this.reindexedAt.get(name) ?? 0) < LOCKED_REVALIDATE_MS) {
 				return indexed;
 			}

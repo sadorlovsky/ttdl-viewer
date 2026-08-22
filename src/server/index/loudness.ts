@@ -1,5 +1,5 @@
 /**
- * ttdl's `loudness.json`, read for the one number a player needs.
+ * ttdl's `.ttdl/loudness.json`, read for the one number a player needs.
  *
  * TikTok mixes wildly — a whispered voiceover sits next to something compressed into a wall — so
  * watching an archive means riding the volume knob. ttdl measures every post to EBU R128 and
@@ -21,7 +21,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { statePath } from "./state.ts";
 
 /** ttdl's own name for the sidecar (ttdl.py: LOUDNESS_FILE). */
 export const LOUDNESS_FILE = "loudness.json";
@@ -41,7 +41,7 @@ const EMPTY: LoudnessIndex = new Map();
 export function readLoudness(dir: string): LoudnessIndex {
 	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(join(dir, LOUDNESS_FILE), "utf8"));
+		raw = JSON.parse(readFileSync(statePath(dir, LOUDNESS_FILE), "utf8"));
 	} catch {
 		return EMPTY;
 	}

@@ -9,7 +9,7 @@ in the TikTok data export (Settings → Account → Download your data).
 
 ## Normally there is nothing to do at all
 
-ttdl takes `--likes` itself, and caches what it finds as `.liked.json` inside the archive. That file
+ttdl takes `--likes` itself, and caches what it finds as `.liked.json` in the archive's `.ttdl/`. That file
 is read first, because it needs no searching, it stays correct after the export folder is deleted,
 and it travels with the archive to storage and back:
 

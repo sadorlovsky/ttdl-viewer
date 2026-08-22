@@ -71,12 +71,12 @@ Notable fields:
 
 | Field | Meaning |
 |---|---|
-| `kind` | `profile` or `list`. A `.source` file makes it a list |
+| `kind` | `profile` or `list`. A `.ttdl/.source` file makes it a list |
 | `counts` | `posts`, `videos`, `carousels`, `incomplete`, `ghosts`, `withoutInfo`, plus ttdl's own `archived` / `known` / `missing` |
-| `card` | ttdl's `profile.json`, with the `fetchedAt` it was taken on. Never present on a list archive |
+| `card` | ttdl's `.ttdl/profile.json`, with the `fetchedAt` it was taken on. Never present on a list archive |
 | `primaryAuthor` | The one author of a profile archive; the largest of a list |
 | `dateRange` | `{ first, last }` in Unix seconds, or null |
-| `downloadInProgress` | ttdl holds a `.lock` while it runs — the UI shows a banner |
+| `downloadInProgress` | ttdl holds a `.ttdl/.lock` while it runs — the UI shows a banner |
 | `scannedAt` | When this index entry was built |
 
 `counts.ghosts` are posts with metadata or a cover but no media file — something that was deleted
@@ -208,7 +208,7 @@ authors and nobody remembers a TikTok handle exactly.
 
 | Route | Serves |
 |---|---|
-| `GET /media/:archiveId/avatar` | The archive's `avatar.jpg`, when ttdl recorded one |
+| `GET /media/:archiveId/avatar` | The archive's `.ttdl/avatar.jpg`, when ttdl recorded one |
 | `GET /media/:archiveId/:postId/media` | The video, or a carousel's audio track |
 | `GET /media/:archiveId/:postId/cover` | The cover image |
 | `GET /media/:archiveId/:postId/photo/:index` | One carousel image |

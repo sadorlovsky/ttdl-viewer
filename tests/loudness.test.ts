@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type LoudnessIndex, readLoudness } from "../src/server/index/loudness.ts";
 import { Registry } from "../src/server/index/registry.ts";
+import { STATE_DIR } from "../src/server/index/state.ts";
 import type { Post } from "../src/shared/types.ts";
 import {
 	correctionFor,
@@ -29,7 +30,8 @@ const LOUD = "7467909701850696968";
 function withSidecar(content: string): LoudnessIndex {
 	const dir = mkdtempSync(join(tmpdir(), "ttdl-viewer-loudness-"));
 	try {
-		writeFileSync(join(dir, "loudness.json"), content);
+		mkdirSync(join(dir, STATE_DIR));
+		writeFileSync(join(dir, STATE_DIR, "loudness.json"), content);
 		return readLoudness(dir);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
@@ -202,8 +204,9 @@ describe("an archive on disk", () => {
 	}
 
 	function measure(gains: Record<string, number>): void {
+		mkdirSync(join(dir, STATE_DIR), { recursive: true });
 		writeFileSync(
-			join(dir, "loudness.json"),
+			join(dir, STATE_DIR, "loudness.json"),
 			sidecar(Object.fromEntries(Object.entries(gains).map(([id, gain]) => [id, { gain }]))),
 		);
 	}

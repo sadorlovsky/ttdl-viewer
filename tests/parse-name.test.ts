@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { idToUnix, parseName, STATE_FILES } from "../src/server/index/parse-name.ts";
+import { idToUnix, parseName } from "../src/server/index/parse-name.ts";
 
 const ID = "7673909736131038495";
 
@@ -91,7 +91,24 @@ describe("parseName", () => {
 	});
 
 	test("state files are not posts", () => {
-		for (const name of STATE_FILES) {
+		// ttdl keeps these in `.ttdl/`, which is not listed here at all — but an archive it has not
+		// touched since the layout moved still has them lying beside the videos, along with the
+		// `<name>.legacy` copies a migration sets aside. None of them is a post.
+		for (const name of [
+			"archive.txt",
+			".all_ids.txt",
+			"missing.txt",
+			"rename-map.txt",
+			"ttdl.log",
+			".source",
+			".lock",
+			".liked.json",
+			"loudness.json",
+			".remote",
+			"profile.json",
+			"avatar.jpg",
+			"profile.json.legacy",
+		]) {
 			expect(parseName(name)).toBeNull();
 		}
 		expect(parseName(".DS_Store")).toBeNull();

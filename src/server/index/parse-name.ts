@@ -30,33 +30,6 @@ export const THUMB_EXTS = [".jpg", ".jpeg", ".webp", ".png"] as const;
 
 export const MEDIA_EXTS = [".mp4", ".m4a", ".mp3"] as const;
 
-/** ttdl STATE_FILES (ttdl.py:498), plus the files ttdl writes but does not upload. */
-export const STATE_FILES = new Set([
-	"archive.txt",
-	".all_ids.txt",
-	"missing.txt",
-	"rename-map.txt",
-	"ttdl.log",
-	".source",
-	".lock",
-	// The saving dates ttdl cached from a data export. Recognised here so that it is a state file
-	// rather than an unparseable name the scan throws away — it is read, and a change to it has to
-	// invalidate the index like any other.
-	".liked.json",
-	// The R128 measurements. Recognised here for the same reason as the file above: it is read,
-	// so a change to it has to reach the index rather than being thrown away as an odd filename.
-	"loudness.json",
-	".remote",
-]);
-
-/**
- * ttdl's author card and its picture (ttdl.py PROFILE_CARD / PROFILE_AVATAR), written by `get`
- * beside the posts. They belong to the archive rather than to any post in it, so they are picked
- * out by name here instead of going through `parseName`, which would reject them anyway.
- */
-export const PROFILE_CARD = "profile.json";
-export const PROFILE_AVATAR = "avatar.jpg";
-
 export type MediaExt = (typeof MEDIA_EXTS)[number];
 export type ThumbExt = (typeof THUMB_EXTS)[number];
 
