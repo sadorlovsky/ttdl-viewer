@@ -185,9 +185,9 @@ marking a different *category* of thing rather than a different state.
 Everything about the equipment is soft-touch and media-first. Controls are pills and circles with
 finger-sized targets, they recede to a hairline border at rest, and they transition in 120ms — fast
 enough to feel handled rather than clicked. Nothing borrowed from the source platform appears
-anywhere: avatars are generated from the handle's seed, every glyph is drawn from scratch, and there
-is no wordmark, because a single remote reference would break the offline guarantee this product
-is built on.
+anywhere: the only picture that can appear is one ttdl already wrote to disk, every glyph is drawn
+from scratch, and there is no wordmark, because a single remote reference would break the offline
+guarantee this product is built on.
 
 **Key Characteristics:**
 
@@ -557,11 +557,14 @@ grid that makes noise because a pointer crossed it is not a setting anybody chos
 is muted independently of the player's own mute state. Under `prefers-reduced-motion: reduce` there
 is no preview at all, which is the honest answer — there is no shorter version of a video to offer.
 
-### Generated Avatar
+### Avatar
 
-ttdl never downloads a profile picture, so there is nothing to show and the mark says so rather than
-pretending otherwise: it is a swatch of exposed film with a letter on it, not a portrait standing in
-for one. Three layers, all derived from the handle's seed — a flat duotone body in the seed's hue
+`get` writes `avatar.jpg` for a profile archive, so the account an archive belongs to usually has a
+real picture, served from disk. Every other author — and every author in a list archive — has only
+a handle, so the seeded mark carries them: a swatch of exposed film with a letter on it, not a
+portrait standing in for one. It is drawn underneath the picture rather than instead of it, so a
+file moved to storage or failing to decode falls back without a broken frame or a layout shift.
+Three layers, all derived from the handle's seed — a flat duotone body in the seed's hue
 (`hsl(h 42% 27%)` → `hsl(h+20 38% 12%)`) that says which person this is; an exposure falling from
 one corner (`radial-gradient(86% 78% at 30% 16%)`) that gives the mark a light direction, so it
 reads as photographed rather than filled; and film grain blended `overlay` over both.

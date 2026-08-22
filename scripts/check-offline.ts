@@ -1,10 +1,10 @@
 /**
  * Fail the build if anything in dist/ points at a remote host.
  *
- * This is the cheap half of the offline guarantee (the Playwright request listener is the other
- * half). It catches the case that is easy to introduce and impossible to notice: a CDN font, an
- * inlined CDN thumbnail URL that survived normalization, an analytics snippet pulled in by a
- * transitive dependency.
+ * This is the build-time half of the offline guarantee; the CSP on the page is the runtime half.
+ * It catches the case that is easy to introduce and impossible to notice: a CDN font, an inlined
+ * CDN thumbnail URL that survived normalization, an analytics snippet pulled in by a transitive
+ * dependency.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";

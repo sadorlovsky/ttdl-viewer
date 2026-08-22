@@ -32,7 +32,7 @@ bun run start --root ~/code/ttdl/downloads   # remembered for next time
 bun run start                                # and never needed again
 ```
 
-It lands in `~/.config/config.json` (or `$XDG_CONFIG_HOME`), which holds that one
+It lands in `~/.config/ttdl-viewer/config.json` (or `$XDG_CONFIG_HOME`), which holds that one
 setting and nothing else. This is the only thing the program writes, and it writes it outside every
 archive — the promise is that nothing here can damage a download, not that the process never opens
 a file for writing. Delete the file to forget it.

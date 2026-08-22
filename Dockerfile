@@ -32,7 +32,8 @@ ENV NODE_ENV=production \
     # Inside a container, 127.0.0.1 is reachable only from the container itself, so the loopback
     # default would make the published port answer nothing. The isolation that the default
     # protects on a laptop is provided here by the network namespace and by which port you
-    # publish — see the README before mapping this to 0.0.0.0 on the host.
+    # publish — see https://ttdl-viewer.orlovsky.dev/guides/docker/ before mapping this to
+    # 0.0.0.0 on the host.
     TTDL_VIEWER_HOST=0.0.0.0
 
 # Archives are mounted read-only, and nothing is written anywhere, so there is no reason to be root.

@@ -31,7 +31,7 @@ its posts and nothing else: no card, no counts, no list marker, until one ttdl c
 
 The format is only specified by `ttdl.py` itself, and three details of it will break a naive
 indexer. They are ported deliberately, and locked down by
-[`tests/complete.test.ts`](https://github.com/sadorlovsky/blob/main/tests/complete.test.ts),
+[`tests/complete.test.ts`](https://github.com/sadorlovsky/ttdl-viewer/blob/main/tests/complete.test.ts),
 which is ttdl's own test table (`tests/test_ttdl.py:52-140`) transcribed one-for-one — if ttdl's
 rule ever changes, that suite is what says so.
 

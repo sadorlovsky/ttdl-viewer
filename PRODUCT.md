@@ -48,9 +48,10 @@ A media viewer that treats "offline" as an enforced property rather than a promi
 Nothing leaves the machine: no avatar fetch, no CDN thumbnail, no webfont. That is enforced in
 three independent places — a build step (`scripts/check-offline.ts`) that fails on any remote
 reference in the bundle, a strict CSP on the page, and the deliberate discarding of `formats[]`
-and `thumbnails[]` from metadata because they carry live signed CDN URLs. Avatars are deterministic
-generative marks derived from the handle, because no profile picture is ever downloaded and
-therefore none exists to show.
+and `thumbnails[]` from metadata because they carry live signed CDN URLs. The one picture that can
+appear is the profile archive's `avatar.jpg`, served from disk because ttdl already fetched it;
+every other author gets a deterministic mark derived from the handle, drawn underneath the picture
+so a missing file falls back without a broken frame.
 
 The one exception is stated rather than hidden, and it is the viewer's own action rather than the
 product's: an **Open at the source** row in the long-press sheet, labelled *leaves the archive*,
@@ -96,6 +97,9 @@ claim that the build fails when a remote URL enters the bundle.
 - Filters: author, kind, status, date range, duration range, hashtag.
 - Sorts: date, likes, views, comments, saves, duration, liked/favorited date, random.
 - Range-correct media serving, so seeking and scrubbing behave.
+- Playback levelled to ttdl's EBU R128 measurements, applied through `element.volume` or a WebAudio
+  graph depending on what the browser honours. The gains are read, never derived, and no file is
+  re-encoded.
 - Copyable original post URLs and handles — displayed, never rendered as a live href. Copying and
   the one outbound navigation ("Open at the source", labelled *leaves the archive*) are both rows in
   the long-press sheet; the action rail holds no controls at all beyond the author's avatar.
@@ -112,6 +116,9 @@ ghost (metadata or cover with no media file) · liked vs. favorited · inferred 
 - No authentication. Anything that reaches the port reads every archive.
 - Search is substring, in memory — fine at a few thousand posts, not an FTS index.
 - Without the TikTok export, every post has `liked: null` and that sort puts them all last.
+- Without `.ttdl/loudness.json`, a post plays at the level it was stored at. The viewer measures
+  nothing itself: measuring is ttdl's job, and doing it here would mean decoding audio at scroll
+  speed.
 - **Never present captured data as something it is not.** `null` renders as `—`, never `0`; an
   inferred date is marked inferred (`createdAtSource`); captured counts are a readout, not a
   control — nothing in the action rail highlights, focuses, or presses.

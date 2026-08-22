@@ -5,8 +5,8 @@ import { defineConfig } from "astro/config";
 const REPO = "https://github.com/sadorlovsky/ttdl-viewer";
 
 export default defineConfig({
-	// The site is served from the root of its own subdomain on Cloudflare Pages, so there is no
-	// base path. `site` is what makes the sitemap and canonical URLs absolute.
+	// Served from the root of its own subdomain as static assets on a Cloudflare Worker, so there
+	// is no base path. `site` is what makes the sitemap and canonical URLs absolute.
 	site: "https://ttdl-viewer.orlovsky.dev",
 	integrations: [
 		starlight({

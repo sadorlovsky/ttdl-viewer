@@ -6,8 +6,6 @@ downloads/
 *.sqlite-shm
 *.sqlite-wal
 .DS_Store
-test-results/
-playwright-report/
 
 # Editor-tooling scratch: per-session caches keyed by absolute paths from one machine.
 .impeccable/
