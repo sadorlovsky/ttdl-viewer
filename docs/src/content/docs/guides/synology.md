@@ -9,8 +9,11 @@ shared folder such as `/volume1/media/tiktok`.
 ## Using the published image
 
 The image is built for `linux/amd64` and `linux/arm64`, which covers the x86-64 models and the ARM
-ones, so the NAS pulls it and nothing is cloned or built there. Write one file,
-`/volume1/docker/ttdl-viewer/docker-compose.yml`:
+ones, so the NAS pulls it and nothing is cloned or built there.
+
+Container Manager → **Project** → **Create**. Name it, set a path such as
+`/volume1/docker/ttdl-viewer`, and choose to create a `docker-compose.yml`; the wizard takes the
+file's contents in a text box, so nothing has to be put on the NAS beforehand:
 
 ```yaml
 services:
@@ -27,8 +30,10 @@ services:
       - "127.0.0.1:4174:4174"
 ```
 
-Then Container Manager → **Project** → **Create**, and set the path to that folder; it picks the
-file up. Over SSH it is:
+DSM pulls the image and starts it. No registry has to be added: `image` names the image in full,
+which is all a pull needs.
+
+Over SSH the same project is:
 
 ```bash
 cd /volume1/docker/ttdl-viewer
