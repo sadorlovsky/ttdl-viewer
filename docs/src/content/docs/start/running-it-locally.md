@@ -47,7 +47,7 @@ bun run start                                # and never needed again
 Everything else about that — where it is remembered, what is tried when you give nothing, and why a
 guessed root is deliberately not kept — is in [Configuration](/start/configuration/).
 
-## Then
+## Next
 
 - [Liked and favorited dates](/guides/liked-dates/) if you want **Recently saved** ordering.
 - [Evening out the volume](/guides/loudness/) if the archive rides the volume knob.

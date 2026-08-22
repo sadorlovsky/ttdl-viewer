@@ -60,8 +60,8 @@ mark an inferred date as inferred.
 ## What is read and thrown away
 
 `formats[]` and `thumbnails[]` are read for geometry and then **discarded**. They are most of the
-file's bytes and, more to the point, they are full of live signed CDN URLs — keeping them would put
-a remote URL one careless `<img src>` away from the render path.
+file's bytes, and they are full of live signed CDN URLs — keeping them would put a remote URL one
+careless `<img src>` away from the render path.
 
 The raw file is still available verbatim from
 [`/posts/:postId/info`](/reference/http-api/#get-apiarchivesarchiveidpostspostidinfo) for anything
@@ -86,7 +86,6 @@ The picture is matched to an author by the handle the card names, not by positio
 directory cannot put one person's face on another's posts. It also joins the listing hash, because a
 replaced picture keeps its filename and a cached index would otherwise go on serving the old one.
 
-The seeded letter-and-hue avatar has not gone anywhere. It renders *underneath* the picture, so a
-file moved to storage falls back to it without a hole in the layout, and it is all there is for
-every author in a list archive — those have no card, because those posts come from many accounts and
-there is no one profile to ask.
+The seeded letter-and-hue avatar renders *underneath* the picture, so a file moved to storage falls
+back to it without a hole in the layout. It is also all there is for every author in a list archive:
+those have no card, because those posts come from many accounts and there is no one profile to ask.

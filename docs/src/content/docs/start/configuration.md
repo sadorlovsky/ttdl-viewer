@@ -37,8 +37,8 @@ setting and nothing else. This is the only thing the program writes, and it writ
 archive — the promise is that nothing here can damage a download, not that the process never opens
 a file for writing. Delete the file to forget it.
 
-Only a root you actually named is kept; one that was found by looking is not, since freezing a
-guess into a setting is how a program ends up serving the wrong directory for months.
+Only a root you actually named is kept; one that was found by probing is not, because a guess
+frozen into a setting goes on serving the wrong directory after the reason for the guess is gone.
 
 ## Where it reads from
 
@@ -52,10 +52,9 @@ Resolution order:
 6. `~/code/ttdl/downloads`
 7. `./fixtures/downloads`
 
-A path given explicitly that does not exist is an error, not a reason to fall through to the probe —
-`--root` pointing at nothing means the intent was clear and unmet. If nothing in 4–7 exists either,
-the server exits and lists every candidate it tried, because failing here is the single most likely
-first-run problem.
+A path given explicitly that does not exist is an error, not a reason to fall through to the probe:
+you named a directory and it is not there. If nothing in 4–7 exists either, the server exits and
+lists every candidate it tried, because a missing root is the usual first-run problem.
 
 `./fixtures/downloads` is last on purpose: it holds the synthetic archive `bun run fixtures`
 generates, and a checkout that has one would otherwise shadow the real archives with fabricated

@@ -7,7 +7,7 @@ TikTok orders your likes and favorites by when you *saved* a post, and that date
 disk — ttdl names files after the publication date and stamps the same date on them. It exists only
 in the TikTok data export (Settings → Account → Download your data).
 
-## Normally there is nothing to do at all
+## ttdl records them itself
 
 ttdl takes `--likes` itself, and caches what it finds as `.liked.json` in the archive's `.ttdl/`. That file
 is read first, because it needs no searching, it stays correct after the export folder is deleted,
@@ -15,7 +15,7 @@ and it travels with the archive to storage and back:
 
 ```bash
 ttdl.py get "TikTok Saved" --likes tiktok-export   # once, in ttdl
-bun run start                                      # the dates are simply there
+bun run start                                      # the dates are already there
 ```
 
 Two orderings — **Recently saved** and **First saved** — then appear in the filter bar, and each
@@ -27,8 +27,8 @@ Only archives built from a list get these dates, which is ttdl's rule and now th
 profile archive holds posts an account published, not posts anybody saved.
 
 Applying one export to every archive — which this used to do — puts a saving date on the handful of
-posts you happen to have liked from an account you also archive in full: seven posts out of 3,307
-in one archive here, which is no ordering at all.
+posts you happen to have liked from an account you also archive in full: seven posts out of 3,307 in
+one archive here, which is too few to order by.
 
 ## If ttdl was never given the export
 

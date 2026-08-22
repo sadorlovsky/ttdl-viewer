@@ -5,9 +5,8 @@ description: The generator that makes an archive to develop against, and the fou
 
 ## Fixtures
 
-No real ttdl archive existed while this was built, so the generator is not a convenience — it is how
-the code gets exercised at all. It needs `ffmpeg` (`brew install ffmpeg`) and is deterministic from
-`--seed`.
+No real ttdl archive existed while this was built, so the generator is how the code gets exercised
+at all. It needs `ffmpeg` (`brew install ffmpeg`) and is deterministic from `--seed`.
 
 ```bash
 bun run fixtures
@@ -50,8 +49,8 @@ bun run build      # vite build, then the offline guard over dist/
 ```
 
 `scripts/check-offline.ts` fails the build on any remote reference in the bundle. Its allow-list is
-kept narrow — specific paths, never whole hosts — because the value of the check is entirely in what
-it refuses to wave through.
+kept narrow — specific paths, never whole hosts — because a whole-host entry would also wave through
+whatever that host serves next.
 
 ## Documentation
 
@@ -81,8 +80,8 @@ One setting could not be moved into the repository the same way. Cloudflare's bu
 1.2.15, which cannot read the `lockfileVersion: 2` that Bun 1.4 writes — it ignores `bun.lock` and
 then fails on `--frozen-lockfile`, which is the correct thing for it to do. Bun takes its version
 only from a `BUN_VERSION` build variable; unlike Node, Python and Ruby, it has no version file to
-commit. So the build settings carry `BUN_VERSION = 1.4.0`, and it is written down here because a
-setting that lives outside the repository is a setting on its way to being forgotten.
+commit. So the build settings carry `BUN_VERSION = 1.4.0`, written down here because nothing in the
+repository records it.
 
 Build watch paths are `docs/*`, evaluated from the repository root rather than from the root
 directory — so a commit that only touches the viewer does not rebuild the site.

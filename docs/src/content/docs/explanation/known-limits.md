@@ -11,17 +11,17 @@ There is no filesystem watcher yet.
 
 ## Search is substring, not full-text
 
-It scans descriptions, authors and track names in memory. Fine at a few thousand posts; an FTS index
-is the answer if that stops being true.
+It scans descriptions, authors and track names in memory. Fine at a few thousand posts; an FTS
+index is what would replace it if that stops being true.
 
 Fuzzy matching is applied only to the author and hashtag pickers, where the candidate list is small
 and handles are genuinely hard to remember.
 
 ## Liked/favorited dates come from ttdl, or from an export
 
-With neither, every post has `liked: null` and `sort=liked` puts them all last. Profile archives
-have it by design. A post sitting in both lists keeps its like date, since that is the list it
-primarily belongs to. The export is also a snapshot — it stops at the day you requested it. See
+With neither, every post has `liked: null` and `sort=liked` puts them all last. A profile archive
+has none by design: it holds posts an account published, not posts anybody saved. A post sitting in
+both lists keeps its like date, since that is the list it primarily belongs to. The export is also a snapshot — it stops at the day you requested it. See
 [Liked and favorited dates](/guides/liked-dates/).
 
 ## AirPlay against an amplified post is untested
@@ -41,5 +41,5 @@ LAN. `--host` defaults to `127.0.0.1` for exactly this reason; see
 They are written from the Dockerfile and DSM's documented behaviour; the image has never been built,
 because no Docker daemon was available on the machine this was developed on.
 
-The one assumption behind the image that *was* verified is the important one — the server runs from
-`dist` plus `src/server` and `src/shared` with no `node_modules` present at all.
+One assumption behind the image was verified: the server runs from `dist` plus `src/server` and
+`src/shared` with no `node_modules` present at all.

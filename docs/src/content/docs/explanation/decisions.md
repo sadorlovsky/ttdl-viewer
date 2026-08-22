@@ -5,8 +5,8 @@ description: Eight things that are not the obvious choice, and the measurement o
 
 ## No SQLite index cache
 
-The plan called for one with a two-tier invalidation scheme. Measured first instead: 4,091 posts
-index in **176–526 ms** with no cache at all, against a target of under two seconds. The cache was
+The plan called for one with a two-tier invalidation scheme. It was measured first instead: 4,091
+posts index in **176–526 ms** with no cache at all, against a target of under two seconds. The cache was
 premature, so it is not there. Revisit if an archive reaches tens of thousands of posts.
 
 ## The feed is hand-rolled, not virtualized
@@ -35,13 +35,13 @@ that has been hovered for 300 ms mounts a muted `<video>` pointed at the same
 `/media/:archive/:post/media` the feed uses, loops its first six seconds, and is destroyed on the
 way out.
 
-Generating 240p clips is what a product does when the media is remote and large; here it is local
-and averages a few megabytes, so it would buy a smaller read at the cost of ffmpeg in the runtime
-image, a writable cache beside a deliberately read-only archive mount, and an invalidation problem.
+Generated 240p clips make sense when the media is remote and large. Here it is local and averages a
+few megabytes, so they would buy a smaller read at the cost of ffmpeg in the runtime image, a
+writable cache beside a deliberately read-only archive mount, and an invalidation problem.
 
-The one thing the approach cannot fix is first-frame latency: on localhost the preview appears in
-well under a second, over Wi-Fi to a sleeping NAS disk it is noticeably slower, and no amount of
-client code changes that.
+First-frame latency is what this cannot fix: on localhost the preview appears in well under a
+second, over Wi-Fi to a sleeping NAS disk it is noticeably slower, and no amount of client code
+changes that.
 
 ## Media sources are assigned imperatively, not as props
 
@@ -52,16 +52,15 @@ They have to be symmetrical: the cleanup exists to hand the decoder back (`pause
 `removeAttribute`, `load`), React does not know the attribute it owns was removed, and StrictMode
 runs every effect twice in development. With `src` as a prop the teardown ran against a healthy
 element and the remount put nothing back, so in `bun run dev` every video in the feed was an empty
-element that never loaded — while production, where StrictMode does not double-invoke, was fine. A
-bug that appears only where the code is worked on is worth this much ceremony to avoid.
+element that never loaded, while production, where StrictMode does not double-invoke, was fine.
 
 ## Loudness is read, never derived
 
 `loudness.json` holds the measurements *and* the gain ttdl derived from them, and only the gain is
 taken. Recomputing it here from `i` and `tp` would mean holding an opinion about the target — but
 the target is a property of the archive, set by `ttdl.py loudness --target`, which rewrites every
-gain in place without re-running ffmpeg. Two programs deriving the same number from the same file is
-two places for it to change.
+gain in place without re-running ffmpeg. Deriving the same number in both programs would give it two
+places to change.
 
 See [Evening out the volume](/guides/loudness/) for what the viewer does with the number once it
 has it.

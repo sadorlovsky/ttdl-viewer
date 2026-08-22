@@ -145,8 +145,8 @@ it forever.
 Posts with no value for the chosen key sort last in **either** direction — an archive with no
 metadata must not float to the top of a "most liked" list. Ties break on `createdAt`, then on the
 post id compared numerically (by length first: a 15-digit id starting with 9 is smaller than a
-19-digit one starting with 1). That totality is not cosmetic — the keyset cursor needs the order to
-be stable, not merely consistent-looking.
+19-digit one starting with 1). The keyset cursor needs that totality: the order has to be stable,
+not merely consistent-looking.
 
 `sort=random` is a seeded shuffle (xmur3 + mulberry32), so the order survives a page reload.
 
@@ -251,5 +251,4 @@ is a changed URL.
 In production the same process serves the built app. Any path that is not a real file under `dist/`
 comes back as `index.html`, since the client routes on paths like `/a/liked/feed/7673…` that exist
 only in the browser. A path that *looks* like a file (`/assets/foo.js`) stays a genuine 404 rather
-than quietly returning HTML — which otherwise shows up as a baffling `unexpected token <` in the
-console.
+than quietly returning HTML, which otherwise shows up as `unexpected token <` in the console.

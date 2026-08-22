@@ -3,13 +3,13 @@ title: Evening out the volume
 description: EBU R128 gains from ttdl, applied through element volume or a WebAudio graph depending on what the browser honours.
 ---
 
-TikTok mixes wildly — a whispered voiceover sits next to something compressed into a wall — so
-watching an archive in order means riding the volume knob. ttdl measures every post to
+TikTok mixes wildly — a whispered voiceover sits next to something mastered ten decibels louder —
+so watching an archive in order means riding the volume knob. ttdl measures every post to
 [EBU R128](https://tech.ebu.ch/publications/r128) and writes the numbers into the archive's
 `.ttdl/loudness.json`, without re-encoding anything. The viewer reads that file and plays each post at
 the level it asks for.
 
-## There is nothing to configure
+## Recording the gains
 
 The sidecar is inside an archive that is being scanned anyway:
 
@@ -27,10 +27,9 @@ the change probe, and `ttdl.py loudness` on a finished archive rewrites nothing 
 stops at 1 — and **on iOS it does not work at all**: WebKit treats playback volume as the user's
 hardware business, ignores what it is told, and reports 1 whatever was written.
 
-That is not a footnote. This shipped applying attenuation through `volume` and amplification
-through a WebAudio gain node, which on a desktop is exactly right and on an iPhone does half the
-job: every quiet post lifted, not one loud post lowered. The archive came out louder than it
-started and just as uneven — which is the opposite of the point.
+This shipped applying attenuation through `volume` and amplification through a WebAudio gain node,
+which on a desktop is exactly right and on an iPhone does half the job: every quiet post lifted, not
+one loud post lowered. The archive came out louder than it started and just as uneven.
 
 So the graph carries whatever `volume` cannot: always amplification, and attenuation too wherever
 `volume` is ignored. Which kind of browser this is gets asked of a real element rather than guessed
@@ -38,8 +37,8 @@ from a user agent — set `volume` to 0.5, read it back, believe the answer.
 
 ### What the measurements say
 
-The graph is worth its cost only because of what the measurements say. Over four archives here —
-98 posts measured whole, 30 sampled from each of the others:
+The graph earns its cost on these numbers. Over four archives here — 98 posts measured whole, 30
+sampled from each of the others:
 
 | archive | integrated | true peak | gain | asks to be quieter | asks to be louder |
 |---|---|---|---|---|---|
@@ -54,7 +53,7 @@ posts asking for more than +18 dB.
 
 ### The rules the graph runs under
 
-Routing an element is a one-way door — it accepts a `MediaElementAudioSourceNode` once, never gives
+Routing an element cannot be undone — it accepts a `MediaElementAudioSourceNode` once, never gives
 it back, and from then on its sound reaches the speakers only through the graph — so it is done
 under rules that keep it from costing anything:
 
@@ -73,7 +72,7 @@ under rules that keep it from costing anything:
   to play later; a mute that does not reach the graph makes the whole ±2 window audible at once.
 - **One limiter sits between every element and the speakers.** The graph sums its sources into a
   buffer that hard-clips at ±1, where before each element reached the platform mixer on its own. Two
-  posts an inch below the ceiling add up to well above it, which is audible as clipping on a swipe —
+  posts just below the ceiling add up to well above it, which is audible as clipping on a swipe,
   and was. With the gating above it should rarely engage; it stays for what gating cannot cover,
   such as a file mastered above full scale in the first place, of which this archive holds a few
   (true peaks up to +4.8 dBTP).
@@ -82,12 +81,12 @@ under rules that keep it from costing anything:
 
 The target belongs to ttdl, not here: `ttdl.py loudness @user --target -16` recomputes every gain
 from the stored measurements without running ffmpeg again, and the viewer picks the new numbers up
-on its next scan. A whole archive that plays too loud is that knob, not this one.
+on its next scan. An archive that plays too loud as a whole is corrected there, not here.
 
-**Amplification stops at +12 dB.** ttdl caps its gain by the true peak and deliberately goes no
-further: a maximum boost, it says, is the consumer's policy rather than an archive's. This is the
-consumer. A post measured at −41 LUFS asks for +26 dB, and 26 dB below target on a phone recording
-is mostly the noise floor. Attenuation is not capped — it cannot clip, and it cannot amplify a noise
+**Amplification stops at +12 dB.** ttdl caps its gain by the true peak and goes no further, treating
+a maximum boost as the consumer's policy rather than the archive's; the viewer is the consumer. A
+post measured at −41 LUFS asks for +26 dB, and 26 dB below target on a phone recording is mostly the
+noise floor. Attenuation is not capped — it cannot clip, and it cannot amplify a noise
 floor.
 
 ## Reading what happened
@@ -105,9 +104,9 @@ carries what it can in `volume`.
 | `0.0` | the post asked for nothing |
 
 `?boost=0` turns the graph off on a device that turns out to need it off, without a deploy;
-`?boost=1` turns it back on. It shipped as the way to answer whether iOS could have the graph at
-all — the received wisdom being that a routed element obeys the ringer switch. It does not: on an
-iPhone, at a post reading `gain=12.0`, flipping the switch to silent changed nothing. That wisdom
+`?boost=1` turns it back on. It shipped to answer whether iOS could have the graph at all, the
+received wisdom being that a routed element obeys the ringer switch. It does not: on an iPhone, at a
+post reading `gain=12.0`, flipping the switch to silent changed nothing. That wisdom
 describes a context playing on its own, and this one is fed by a `<video>` that is already playing,
 so the session is the element's.
 
