@@ -98,9 +98,10 @@ function requireListable(root: string): void {
 		throw new Error(
 			`Cannot read ${root}\n\n` +
 				"The directory is there; listing it was refused. Running in a container, this is the " +
-				"mounted share being readable only to its owner — find that owner with `ls -ln` and " +
-				"give the container the same numeric ids:\n\n" +
-				'  user: "1026:100"\n\n' +
+				"mounted share being readable only to its owner.\n\n" +
+				"On a Synology NAS: File Station, right-click the folder, Properties, Permission, " +
+				"Create, and allow Everyone to Read.\n" +
+				'Elsewhere: give the container the folder\'s numeric owner, `user: "1026:100"`.\n\n' +
 				"https://ttdl-viewer.orlovsky.dev/guides/synology/",
 		);
 	}

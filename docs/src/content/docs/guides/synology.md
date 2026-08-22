@@ -91,8 +91,25 @@ The directory is there; listing it was refused.
 ```
 
 The container runs as the non-root `bun` user, and Synology shares are often owned by a specific
-DSM account rather than being world-readable. Check the numeric owner over SSH and tell compose to
-match it:
+DSM account rather than being world-readable. A container's user is not a DSM account and matches
+no rule written for one, which is why Synology's own answer is to grant the permission to
+[**Everyone**](https://kb.synology.com/en-global/DSM/tutorial/Docker_container_cant_access_the_folder_or_file).
+
+File Station → right-click the archive folder → **Properties** → **Permission** → **Create**:
+
+| Field | Value |
+|---|---|
+| User or group | Everyone |
+| Type | Allow |
+| Apply to | All descendants |
+| Permission | Read |
+
+Leave Write unticked. The viewer never writes to an archive, and the mount is `:ro` besides. Set it
+on the folder you mounted rather than on the whole shared folder, so the grant reaches no further
+than the archives.
+
+The other way is to run as the folder's owner instead of `bun`, which needs the numeric ids that
+only SSH will show:
 
 ```bash
 ls -ln /volume1/media/tiktok      # e.g.  drwx------ 1026 100
@@ -101,9 +118,6 @@ ls -ln /volume1/media/tiktok      # e.g.  drwx------ 1026 100
 ```yaml
 user: "1026:100"
 ```
-
-There is no way to read those numbers from DSM's interface, so this one step needs SSH. Control
-Panel → Terminal & SNMP → **Enable SSH service** if it is off.
 
 ## Behind DSM's reverse proxy
 
