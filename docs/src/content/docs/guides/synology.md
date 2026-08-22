@@ -41,6 +41,16 @@ A newer version means editing the tag and pulling:
 sudo docker compose pull && sudo docker compose up -d
 ```
 
+Over SSH, `sudo docker pull ghcr.io/sadorlovsky/ttdl-viewer:0.1.0` puts it in Container Manager's
+**Image** list, where the UI can start it like any other.
+
+:::note
+Container Manager's **Registry** tab cannot fetch this image, and reports `Registry returned bad
+result`. It lists a registry by searching it; GHCR answers `/v2/` with an authentication challenge
+and exposes no search endpoint, so there is nothing for DSM to list. A project and a `docker pull`
+both address the image by its full name and need no registry added.
+:::
+
 [The tag table](/guides/docker/#the-published-image) says what `latest` and `edge` mean. Pin an
 exact version on a NAS you do not want changing under you.
 
