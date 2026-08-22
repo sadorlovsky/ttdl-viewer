@@ -11,9 +11,11 @@ shared folder such as `/volume1/media/tiktok`.
 The image is built for `linux/amd64` and `linux/arm64`, which covers the x86-64 models and the ARM
 ones, so the NAS pulls it and nothing is cloned or built there.
 
-Container Manager → **Project** → **Create**. Name it, set a path such as
-`/volume1/docker/ttdl-viewer`, and choose to create a `docker-compose.yml`; the wizard takes the
-file's contents in a text box, so nothing has to be put on the NAS beforehand:
+Container Manager → **Project** → **Create**. Name it and choose to create a `docker-compose.yml`;
+the wizard takes the file's contents in a text box, so nothing has to be put on the NAS beforehand.
+**Path** is where Container Manager keeps the project — it writes that file and its own bookkeeping
+there, so give it a folder of its own such as `/volume1/docker/ttdl-viewer`, never the archive share
+you are about to mount.
 
 ```yaml
 services:
