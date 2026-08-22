@@ -1,8 +1,14 @@
 /*
- * The viewer's own tokens, from DESIGN.md — a black darkroom with one rose accent.
+ * The viewer's own tokens, from DESIGN.md — a black darkroom with one rose accent — plus a light
+ * theme for reading the site in daylight. Only Starlight's variables are set; no component is
+ * restyled. System fonts throughout, matching the app: a documentation site for something that
+ * fetches nothing should not fetch a webfont.
  *
- * Only Starlight's variables are set; no component is restyled. System fonts throughout, matching
- * the app: a documentation site for something that fetches nothing should not fetch a webfont.
+ * The app itself has no light mode and DESIGN.md defines no light palette, so the light theme
+ * belongs to this site and stops here. It is a full palette rather than a few overrides, because
+ * Starlight's gray scale inverts between the two — `--sl-color-white` is the highest-contrast text
+ * colour, which on paper is black. Dark stays the unqualified `:root`, so it is what renders
+ * before the theme script has run and what a browser with no stored preference lands on.
  */
 
 :root,
@@ -31,14 +37,50 @@
 	--sl-color-text-accent: #fe2c55;
 	--sl-color-text-invert: #000000;
 
+	/* Prose links. Cyan is the developer-facing accent in the app; keep it here. */
+	--ttdl-color-link: #25f4ee;
+	/* Table headers, which sit a step back from the cells they label. */
+	--ttdl-color-th: rgb(255 255 255 / 0.72);
+
 	--sl-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
 		sans-serif;
 	--sl-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* Cyan is the developer-facing accent in the app; keep it for links inside prose. */
+:root[data-theme="light"] {
+	/* The same rose, darkened until it carries text on white — #fe2c55 on paper is 3.1:1. */
+	--sl-color-accent-low: #ffdde3;
+	--sl-color-accent: #d1123c;
+	--sl-color-accent-high: #8a0c28;
+
+	--sl-color-white: #0d0d0d;
+	--sl-color-gray-1: rgb(0 0 0 / 0.9);
+	--sl-color-gray-2: rgb(0 0 0 / 0.68);
+	--sl-color-gray-3: rgb(0 0 0 / 0.52);
+	--sl-color-gray-4: rgb(0 0 0 / 0.38);
+	--sl-color-gray-5: #dcdcdc;
+	--sl-color-gray-6: #ececec;
+	--sl-color-gray-7: #f5f5f5;
+	--sl-color-black: #ffffff;
+
+	--sl-color-bg: #ffffff;
+	--sl-color-bg-nav: #f7f7f7;
+	--sl-color-bg-sidebar: #ffffff;
+	--sl-color-bg-inline-code: #f0f0f0;
+	--sl-color-hairline: rgb(0 0 0 / 0.12);
+	--sl-color-hairline-light: rgb(0 0 0 / 0.22);
+	--sl-color-hairline-shade: rgb(0 0 0 / 0.1);
+
+	--sl-color-text-accent: #d1123c;
+	--sl-color-text-invert: #ffffff;
+
+	/* Cyan is unreadable on paper at 1.4:1, so links become the teal the same hue darkens into. */
+	--ttdl-color-link: #06707a;
+	--ttdl-color-th: rgb(0 0 0 / 0.68);
+}
+
 .sl-markdown-content a:not(:where(.not-content *)) {
-	color: #25f4ee;
+	color: var(--ttdl-color-link);
 	text-underline-offset: 0.2em;
 }
 
@@ -48,7 +90,7 @@
 }
 
 .sl-markdown-content th:not(:where(.not-content *)) {
-	color: rgb(255 255 255 / 0.72);
+	color: var(--ttdl-color-th);
 	font-weight: 600;
 }
 

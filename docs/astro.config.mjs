@@ -4,6 +4,9 @@ import { defineConfig } from "astro/config";
 
 const REPO = "https://github.com/sadorlovsky/ttdl-viewer";
 
+/** Dark first, light second — Starlight keys the generated CSS off `theme.type`. */
+const byTheme = (dark, light) => ({ theme }) => (theme.type === "dark" ? dark : light);
+
 export default defineConfig({
 	// Served from the root of its own subdomain as static assets on a Cloudflare Worker, so there
 	// is no base path. `site` is what makes the sitemap and canonical URLs absolute.
@@ -15,16 +18,17 @@ export default defineConfig({
 			social: [{ icon: "github", label: "GitHub", href: REPO }],
 			editLink: { baseUrl: `${REPO}/edit/main/docs/` },
 			customCss: ["./src/styles/theme.css"],
-			// The viewer has no light mode. Neither should the page describing it — see
-			// src/components/ThemeSelect.astro.
-			components: { ThemeSelect: "./src/components/ThemeSelect.astro" },
 			expressiveCode: {
-				themes: ["github-dark"],
+				themes: ["github-dark", "github-light"],
 				styleOverrides: {
 					borderRadius: "0.5rem",
-					borderColor: "rgb(255 255 255 / 0.12)",
-					codeBackground: "#1c1c1c",
-					frames: { editorTabBarBackground: "#1c1c1c", terminalBackground: "#1c1c1c" },
+					borderColor: byTheme("rgb(255 255 255 / 0.12)", "rgb(0 0 0 / 0.12)"),
+					codeBackground: byTheme("#1c1c1c", "#fbfbfb"),
+					frames: {
+						editorTabBarBackground: byTheme("#1c1c1c", "#f1f1f1"),
+						terminalBackground: byTheme("#1c1c1c", "#fbfbfb"),
+						terminalTitlebarBackground: byTheme("#1c1c1c", "#f1f1f1"),
+					},
 				},
 			},
 			lastUpdated: true,
