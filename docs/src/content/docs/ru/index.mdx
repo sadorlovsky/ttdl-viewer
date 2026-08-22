@@ -1,0 +1,47 @@
+---
+title: ttdl-viewer
+description: Просмотрщик архивов ttdl — только чтение, полностью офлайн.
+template: splash
+head:
+  # Иначе заголовок страницы и название сайта — одно и то же слово дважды.
+  - tag: title
+    content: ttdl-viewer — офлайн-просмотрщик архивов ttdl
+hero:
+  tagline: Тёмная комната для архива, который никогда не покидает диск.
+  actions:
+    - text: Запуск локально
+      link: /ru/start/running-it-locally/
+      icon: right-arrow
+    - text: На GitHub
+      link: https://github.com/sadorlovsky/ttdl-viewer
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Интерфейс в форме приложения с короткими видео поверх файлов, которые
+[ttdl](https://github.com/sadorlovsky/ttdl) уже положил вам на диск. Ничего не уходит с машины, где
+он запущен, ничего не тянется с CDN, и ничего здесь не пишет в архив.
+
+<CardGrid stagger>
+	<Card title="Наружу не уходит ничего" icon="warning">
+		Ни обложка, ни шрифт, ни картинка автора. Это не намерение, а два механизма: шаг сборки,
+		[который падает](/ru/reference/fixtures-and-checks/) на любой удалённой ссылке в бандле, и
+		строгий CSP на самой странице.
+	</Card>
+	<Card title="Только чтение" icon="document">
+		Ничто здесь не переименует файл и не вызовет ttdl, так что испортить загрузку, занявшую
+		часы, оно не может. Единственный файл, который пишется, — запомненный корень, и лежит он
+		[вне всех архивов](/ru/start/configuration/).
+	</Card>
+	<Card title="Ровная громкость без перекодирования" icon="seti:audio">
+		ttdl измеряет каждый пост по EBU R128; просмотрщик играет каждый на том уровне, который тот
+		просит, — через `volume` или через граф WebAudio, смотря
+		[что браузер на самом деле соблюдает](/ru/guides/loudness/).
+	</Card>
+	<Card title="Формат ttdl, перенесённый точно" icon="approve-check">
+		Три его детали [ломают наивный индексатор](/ru/reference/archive-format/). Они закреплены
+		собственной таблицей тестов ttdl, перенесённой один в один.
+	</Card>
+</CardGrid>

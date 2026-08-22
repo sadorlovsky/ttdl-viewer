@@ -15,6 +15,14 @@ export default defineConfig({
 		starlight({
 			title: "ttdl-viewer",
 			description: "A read-only, fully offline viewer for archives downloaded by ttdl.",
+			// English keeps the bare paths it has always had; Russian lives under /ru/. Moving the
+			// English pages into an `en/` directory would have changed every published URL, and the
+			// README and ttdl's own site link to them.
+			defaultLocale: "root",
+			locales: {
+				root: { label: "English", lang: "en" },
+				ru: { label: "Русский", lang: "ru" },
+			},
 			social: [{ icon: "github", label: "GitHub", href: REPO }],
 			editLink: { baseUrl: `${REPO}/edit/main/docs/` },
 			customCss: ["./src/styles/theme.css"],
@@ -35,35 +43,79 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: "Start",
+					translations: { ru: "Начало" },
 					items: [
-						{ label: "What this is", slug: "start/what-this-is" },
-						{ label: "Running it locally", slug: "start/running-it-locally" },
-						{ label: "Configuration", slug: "start/configuration" },
+						{
+							label: "What this is",
+							translations: { ru: "Что это такое" },
+							slug: "start/what-this-is",
+						},
+						{
+							label: "Running it locally",
+							translations: { ru: "Запуск локально" },
+							slug: "start/running-it-locally",
+						},
+						{ label: "Configuration", translations: { ru: "Настройка" }, slug: "start/configuration" },
 					],
 				},
 				{
 					label: "Guides",
+					translations: { ru: "Руководства" },
 					items: [
-						{ label: "Liked and favorited dates", slug: "guides/liked-dates" },
-						{ label: "Evening out the volume", slug: "guides/loudness" },
-						{ label: "Running it in Docker", slug: "guides/docker" },
-						{ label: "Running it on a Synology NAS", slug: "guides/synology" },
+						{
+							label: "Liked and favorited dates",
+							translations: { ru: "Даты лайков и избранного" },
+							slug: "guides/liked-dates",
+						},
+						{
+							label: "Evening out the volume",
+							translations: { ru: "Выровнять громкость" },
+							slug: "guides/loudness",
+						},
+						{
+							label: "Running it in Docker",
+							translations: { ru: "Запуск в Docker" },
+							slug: "guides/docker",
+						},
+						{
+							label: "Running it on a Synology NAS",
+							translations: { ru: "Запуск на Synology NAS" },
+							slug: "guides/synology",
+						},
 					],
 				},
 				{
 					label: "Reference",
+					translations: { ru: "Справочник" },
 					items: [
-						{ label: "HTTP API", slug: "reference/http-api" },
-						{ label: "Reading ttdl's format", slug: "reference/archive-format" },
-						{ label: "Fixtures and checks", slug: "reference/fixtures-and-checks" },
+						{ label: "HTTP API", translations: { ru: "HTTP API" }, slug: "reference/http-api" },
+						{
+							label: "Reading ttdl's format",
+							translations: { ru: "Чтение формата ttdl" },
+							slug: "reference/archive-format",
+						},
+						{
+							label: "Fixtures and checks",
+							translations: { ru: "Фикстуры и проверки" },
+							slug: "reference/fixtures-and-checks",
+						},
 					],
 				},
 				{
 					label: "Explanation",
+					translations: { ru: "Объяснения" },
 					items: [
-						{ label: "Layout", slug: "explanation/layout" },
-						{ label: "Notable decisions", slug: "explanation/decisions" },
-						{ label: "Known limits", slug: "explanation/known-limits" },
+						{ label: "Layout", translations: { ru: "Структура" }, slug: "explanation/layout" },
+						{
+							label: "Notable decisions",
+							translations: { ru: "Заметные решения" },
+							slug: "explanation/decisions",
+						},
+						{
+							label: "Known limits",
+							translations: { ru: "Известные ограничения" },
+							slug: "explanation/known-limits",
+						},
 					],
 				},
 			],
