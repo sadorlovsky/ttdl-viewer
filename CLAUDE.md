@@ -2,7 +2,9 @@
 
 `DESIGN.md` is the design system — tokens, component recipes, and the darkroom the app is.
 `PRODUCT.md` is the product spec — the vocabulary, the three jobs, and what future work must not
-fabricate. Neither is repeated here; read them before changing anything they cover.
+fabricate. `FEATURES.md` is the behaviour inventory — every feature against the shared surfaces it
+leans on, and what verifies each; a change to a feature updates its entry in the same commit. None
+of the three is repeated here; read them before changing anything they cover.
 
 ## The two guarantees
 
