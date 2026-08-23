@@ -35,6 +35,13 @@ So the graph carries whatever `volume` cannot: always amplification, and attenua
 `volume` is ignored. Which kind of browser this is gets asked of a real element rather than guessed
 from a user agent — set `volume` to 0.5, read it back, believe the answer.
 
+Except on the iOS family, which gets no graph at all. WebKit's media pipeline does not change the
+playback rate of a routed element: with the graph on, the press-and-hold speed-up and the rate menu
+both stopped working on an iPhone — the video held its pace and jumped as it re-synced, while the
+pitch crept up by less than the chosen rate. Routing cannot be undone for the length of a hold, so
+the graph and a working rate cannot coexist there, and the graph is the one given up. Posts on iOS
+play uncorrected, exactly as they did before the correction existed.
+
 ### What the measurements say
 
 The graph earns its cost on these numbers. Over four archives here — 98 posts measured whole, 30
@@ -100,15 +107,16 @@ carries what it can in `volume`.
 | `-5.1` / `12.0` | the correction is on the post, through the node or through `volume` |
 | `wait` | it needs the graph, and no gesture has created the context yet |
 | `off` | it needs the graph, and `?boost=0` forbade one |
-| `deaf` | `volume` is ignored here and the graph is forbidden — nothing is applied |
+| `deaf` | `volume` is ignored here and there is no graph — nothing is applied |
 | `0.0` | the post asked for nothing |
 
-`?boost=0` turns the graph off on a device that turns out to need it off, without a deploy;
-`?boost=1` turns it back on. It shipped to answer whether iOS could have the graph at all, the
-received wisdom being that a routed element obeys the ringer switch. It does not: on an iPhone, at a
-post reading `gain=12.0`, flipping the switch to silent changed nothing. That wisdom
-describes a context playing on its own, and this one is fed by a `<video>` that is already playing,
-so the session is the element's.
+`?boost=0` turns the graph off anywhere, without a deploy; `?boost=1` forces it on where the iOS
+rule above bans it, which is how the playback rate gets re-tested on a future WebKit. The flag has
+answered one question already: whether a routed element obeys the ringer switch, as the received
+wisdom said it would. It does not — on an iPhone, at a post reading `gain=12.0`, flipping the
+switch to silent changed nothing, because the session belongs to the `<video>` that is already
+playing rather than to the context. The rate is the thing that test could not have found, and is
+why the ban came back.
 
 A post ttdl has not measured — an archive the command was never run over, a post with no
 soundtrack, a download that was cut short — plays exactly as it did before any of this existed.
