@@ -66,6 +66,14 @@ The site was toned down deliberately. Keep it there.
 - Keep numbers, versions and issue references exact. Do not round them.
 - **No usernames.** Not real accounts, and not fixtures like `@alice` either. Write "an account".
 
+## Session links
+
+No link to an assistant session goes into anything this repository keeps: a commit message, a pull
+request title or body, a review or issue comment, a code comment. A `https://claude.ai/code/session_…`
+URL is written into a pull request body by default, and a GitHub app appends a second copy in a
+footer of its own; both come out before the pull request is opened. A "Generated with Claude Code"
+line carrying no session URL is not one of these.
+
 ## Releases
 
 `package.json` holds the version, and it is the only place it is written: the server imports it for
