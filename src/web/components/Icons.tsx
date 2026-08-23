@@ -178,6 +178,29 @@ export const SpeedIcon = ({ size = 20, className }: IconProps) => (
 	</svg>
 );
 
+/**
+ * Loudness, held between two rails.
+ *
+ * Not a bar chart and not a speaker: what the switch beside it does is keep every post inside the
+ * same pair of limits, so the limits are the drawing and the waveform is what obeys them.
+ */
+export const LevelsIcon = ({ size = 20, className }: IconProps) => (
+	<svg {...base(size)} className={className}>
+		<path
+			d="M3.5 5.5h17M3.5 18.5h17"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+		/>
+		<path
+			d="M8 9v6M12 8v8M16 10.5v3"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			strokeLinecap="round"
+		/>
+	</svg>
+);
+
 /** Clear display: an eye, struck through. The full outline, because a half-drawn one reads as a
  *  bow tie at this size rather than as anything to do with looking. */
 export const EyeOffIcon = ({ size = 20, className }: IconProps) => (

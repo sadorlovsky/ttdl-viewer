@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { normalizeOverride } from "../feed/loudness.ts";
 
 interface PlayerState {
 	muted: boolean;
@@ -29,6 +30,25 @@ interface PlayerState {
 	 * on an archive whose whole point is showing what is actually on disk.
 	 */
 	pan: boolean;
+	/**
+	 * Whether every post is played at one loudness, or at whatever it was mastered at.
+	 *
+	 * On by default, which is what shipped: an archive read in order is a volume knob you keep
+	 * reaching for, and the median post in every archive measured here asks to be made louder. It
+	 * is a setting rather than a decision because the correction is still an opinion applied to
+	 * someone else's mix — the same ground `pan` stands on — and because a boost is the one part
+	 * of it that can make a post *worse*, by lifting a noise floor along with a voice.
+	 */
+	normalize: boolean;
+	/**
+	 * What `?normalize=` said on this page load, if it said anything.
+	 *
+	 * Not persisted, exactly like `mutedByPolicy`: a link sent to somebody is allowed to change
+	 * what they hear for as long as they are on it, and is not allowed to change a setting on
+	 * their machine. Kept beside the setting rather than folded into it so that the setting
+	 * survives the visit intact — `normalizeOn` decides which of the two is in force.
+	 */
+	normalizeOverride: boolean | null;
 	/** Whether the feed's one-time gesture hint has been dismissed. Persisted; it is shown once. */
 	seenFeedHint: boolean;
 	toggleMuted: () => void;
@@ -48,7 +68,20 @@ interface PlayerState {
 	markInteracted: () => void;
 	setAutoAdvance: (on: boolean) => void;
 	setPan: (on: boolean) => void;
+	/** Turn the loudness correction on or off, and drop any override the URL asked for. */
+	setNormalize: (on: boolean) => void;
 	dismissFeedHint: () => void;
+}
+
+/**
+ * Whether the correction is in force, which is the only form of this anything should read.
+ *
+ * A URL asking for one page load beats the stored setting, and nothing else does. Written to be
+ * usable both as a selector — `usePlayer(normalizeOn)` — and against `getState()`, because the
+ * places that need it are split evenly between the two.
+ */
+export function normalizeOn(state: Pick<PlayerState, "normalize" | "normalizeOverride">): boolean {
+	return state.normalizeOverride ?? state.normalize;
 }
 
 /** The rates the menu offers, and the only ones anything else should assume. */
@@ -73,6 +106,11 @@ export const usePlayer = create<PlayerState>()(
 			hasInteracted: false,
 			autoAdvance: false,
 			pan: false,
+			normalize: true,
+			// Read here rather than in the module that acts on it: this store is already a
+			// browser's, having a `localStorage` under it, and it is created once at boot — long
+			// before the feed starts rewriting its own URL from the filter.
+			normalizeOverride: normalizeOverride(window.location.search),
 			seenFeedHint: false,
 			// Turning the sound on by hand is a gesture, which is the very thing the policy wanted —
 			// so it clears the flag as well as the mute.
@@ -92,6 +130,10 @@ export const usePlayer = create<PlayerState>()(
 			markInteracted: () => set({ hasInteracted: true }),
 			setAutoAdvance: (autoAdvance) => set({ autoAdvance }),
 			setPan: (pan) => set({ pan }),
+			// Clearing the override is the point of going through here: from the moment a viewer
+			// touches the switch, the switch is what is in force, including when they set it back
+			// to what the URL had asked for.
+			setNormalize: (normalize) => set({ normalize, normalizeOverride: null }),
 			// Any interaction at all counts as having read it: the hint names the gestures, and using
 			// one is better proof of having understood it than dismissing a box would be.
 			dismissFeedHint: () => set((state) => (state.seenFeedHint ? {} : { seenFeedHint: true })),
@@ -104,6 +146,7 @@ export const usePlayer = create<PlayerState>()(
 				rate: state.rate,
 				autoAdvance: state.autoAdvance,
 				pan: state.pan,
+				normalize: state.normalize,
 				seenFeedHint: state.seenFeedHint,
 			}),
 		},

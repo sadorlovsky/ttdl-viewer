@@ -4,9 +4,10 @@
  * Two halves that fail differently. Reading is a parser aimed at a file another program wrote —
  * where the interesting cases are the entries that carry no gain, since a post with no soundtrack
  * and a post ttdl could not open both have to end up as "leave it alone" rather than as zero.
- * Applying is arithmetic, and the case that matters there is the one deliberately not applied: a
- * boost, which `HTMLMediaElement.volume` cannot express and which this screen does not go through
- * WebAudio to get.
+ * Applying is arithmetic, and what is worth pinning there is which of the two routes a correction
+ * takes: `HTMLMediaElement.volume` cannot amplify and on iOS does nothing at all, so a gain node
+ * carries whatever it cannot — and the viewer's switch is upstream of that choice, since a
+ * correction of 0 needs no route.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -18,11 +19,13 @@ import { STATE_DIR } from "../src/server/index/state.ts";
 import type { Post } from "../src/shared/types.ts";
 import {
 	correctionFor,
+	correctionReaches,
 	elementVolume,
 	graphPermitted,
 	MAX_BOOST_DB,
 	needsGraph,
 	nodeGain,
+	normalizeOverride,
 } from "../src/web/feed/loudness.ts";
 
 const LOUD = "7467909701850696968";
@@ -88,15 +91,15 @@ describe("correctionFor", () => {
 	const post = (loudnessGain: number | null) => ({ loudnessGain }) as Post;
 
 	test("is the shift ttdl asked for", () => {
-		expect(correctionFor(post(-5.1))).toBe(-5.1);
-		expect(correctionFor(post(4.4))).toBe(4.4);
+		expect(correctionFor(post(-5.1), true)).toBe(-5.1);
+		expect(correctionFor(post(4.4), true)).toBe(4.4);
 	});
 
 	test("is nothing for a post nothing measured", () => {
 		// An archive ttdl never ran `loudness` over, a post with no sound, a download that was cut
 		// short. All three arrive as null and all three mean "leave this alone".
-		expect(correctionFor(post(null))).toBe(0);
-		expect(correctionFor(post(0))).toBe(0);
+		expect(correctionFor(post(null), true)).toBe(0);
+		expect(correctionFor(post(0), true)).toBe(0);
 	});
 
 	test("amplification stops at the ceiling, attenuation does not", () => {
@@ -104,8 +107,59 @@ describe("correctionFor", () => {
 		// right not to cap that — it does not know what the file will be played on — and this is
 		// where the policy belongs: past the ceiling what gets amplified is the noise floor.
 		// Downwards there is nothing to protect against: attenuation cannot clip.
-		expect(correctionFor(post(26.12))).toBe(MAX_BOOST_DB);
-		expect(correctionFor(post(-26.12))).toBe(-26.12);
+		expect(correctionFor(post(26.12), true)).toBe(MAX_BOOST_DB);
+		expect(correctionFor(post(-26.12), true)).toBe(-26.12);
+	});
+
+	test("is nothing at all with the switch off, in either direction", () => {
+		// The whole switch is this line. Both directions, because turning it off has to mean the
+		// post plays as it was mastered — not "the quiet ones stay quiet while the loud ones are
+		// still pulled down", which is the half-correction `?boost=0` leaves behind on a browser
+		// that honours `volume`, and which is exactly what this is not.
+		expect(correctionFor(post(-5.1), false)).toBe(0);
+		expect(correctionFor(post(26.12), false)).toBe(0);
+	});
+
+	test("off costs nothing downstream, because 0 needs no graph", () => {
+		// Not a restatement of `needsGraph`: it is the reason the switch is affordable. A post
+		// whose correction is 0 is never routed, so with the switch off no element is handed to a
+		// `MediaElementAudioSourceNode` and no `AudioContext` is created — on either kind of
+		// browser, including the one where `volume` does not work.
+		expect(needsGraph(correctionFor(post(26.12), false), true)).toBe(false);
+		expect(needsGraph(correctionFor(post(26.12), false), false)).toBe(false);
+	});
+});
+
+describe("normalizeOverride", () => {
+	test("a URL that says nothing decides nothing", () => {
+		// Null rather than true: the answer belongs to the stored setting, and this has to be able
+		// to say so instead of overruling it with a default.
+		expect(normalizeOverride("")).toBe(null);
+		expect(normalizeOverride("?debug=1")).toBe(null);
+	});
+
+	test("`?normalize=0` turns the correction off for the visit", () => {
+		expect(normalizeOverride("?normalize=0")).toBe(false);
+		expect(normalizeOverride("?debug=1&normalize=0")).toBe(false);
+	});
+
+	test("`?normalize=1` turns it on, which is not the same as saying nothing", () => {
+		// Worth having: it is how a link demonstrates the correction to somebody who has turned it
+		// off on their own machine, without changing what they have set.
+		expect(normalizeOverride("?normalize=1")).toBe(true);
+	});
+
+	test("anything else in the flag is not an answer", () => {
+		expect(normalizeOverride("?normalize=yes")).toBe(null);
+		expect(normalizeOverride("?normalize=")).toBe(null);
+	});
+
+	test("it is a different flag from `?boost`, which forbids only the graph", () => {
+		// The two are documented separately because they turn off different things, and a reader
+		// who assumes one is an alias of the other gets a device hatch where they wanted a
+		// setting. `?boost=0` leaves `volume` correcting whatever it can.
+		expect(graphPermitted("?normalize=0", true, false)).toBe(true);
+		expect(normalizeOverride("?boost=0")).toBe(null);
 	});
 });
 
@@ -203,6 +257,28 @@ describe("graphPermitted", () => {
 		expect(graphPermitted("?boost=no", true, false)).toBe(true);
 		expect(graphPermitted("?boost=no", false, false)).toBe(false);
 		expect(graphPermitted("?boost=", true, false)).toBe(true);
+	});
+});
+
+describe("correctionReaches", () => {
+	test("either route is enough", () => {
+		expect(correctionReaches(true, false, false)).toBe(true);
+		expect(correctionReaches(false, true, false)).toBe(true);
+		expect(correctionReaches(true, true, false)).toBe(true);
+	});
+
+	test("a browser with neither gets nothing, and is offered nothing", () => {
+		// This is what the sheet asks before drawing the switch: with no graph and no `volume`
+		// there is no position of it that changes a post.
+		expect(correctionReaches(false, false, false)).toBe(false);
+	});
+
+	test("the iOS family reaches nothing, whatever the volume probe says", () => {
+		// The probe is why this takes the platform as well: a getter that stores the value while
+		// the sound ignores it answers "volume works", and the switch would be drawn on the one
+		// platform where it can do nothing. Same blind spot the graph ban stopped relying on.
+		expect(correctionReaches(false, true, true)).toBe(false);
+		expect(correctionReaches(false, false, true)).toBe(false);
 	});
 });
 

@@ -29,7 +29,7 @@ import { resumeAudio, setLevel } from "../feed/loudness.ts";
 import { PostMenu } from "../feed/PostMenu.tsx";
 import { VideoSlide } from "../feed/VideoSlide.tsx";
 import { date, duration } from "../lib/format.ts";
-import { usePlayer } from "../store/player.ts";
+import { normalizeOn, usePlayer } from "../store/player.ts";
 import empty from "./Empty.module.css";
 import styles from "./FeedScreen.module.css";
 
@@ -387,22 +387,25 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 	const toggleSound = useCallback(() => {
 		markInteracted();
 		toggleMuted();
+		// Read once, after the toggle above: the store has settled, and every line below wants the
+		// same answer out of it rather than three reads that could disagree.
+		const player = usePlayer.getState();
 		// Also here, and not only in the pointer handler above: this control is reachable by
 		// keyboard, and a press that never went through a pointer would otherwise leave the graph
 		// asleep on the one gesture that most clearly asks for sound. See loudness.ts.
-		resumeAudio();
+		resumeAudio(normalizeOn(player));
 		const media = currentMedia();
 		if (!media || !activePost) {
 			return;
 		}
-		const nowMuted = usePlayer.getState().muted;
+		const nowMuted = player.muted;
 		const wasPlaying = !media.paused;
 		if (nowMuted) {
 			media.muted = true;
 			// And in the level too, in the same breath. A routed element's `muted` may never reach
 			// the graph, so on the browsers where it does not, this is the only thing that makes
 			// the speaker button do anything at all. See loudness.ts.
-			setLevel(media, activePost, usePlayer.getState().volume, false);
+			setLevel(media, activePost, player.volume, false, normalizeOn(player));
 			return;
 		}
 		const swap = NEEDS_SOUND_SWAP && wasPlaying && media instanceof HTMLVideoElement;
@@ -421,7 +424,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 		// and the moment between them is audible: the element would come back at full volume and
 		// only then be pulled down to the post's level, which on the loud posts is the flinch this
 		// correction exists to prevent.
-		setLevel(media, activePost, usePlayer.getState().volume, true);
+		setLevel(media, activePost, player.volume, true, normalizeOn(player));
 		if (swap) {
 			void media.play().catch(() => undefined);
 		}
@@ -639,7 +642,7 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			// and one created at any other moment starts suspended. The speaker button is not
 			// enough on its own — a viewer whose sound preference is already on never presses it,
 			// and every post waiting to be amplified would wait forever.
-			resumeAudio();
+			resumeAudio(normalizeOn(usePlayer.getState()));
 			/*
 			 * Everywhere except the control that owns the sound.
 			 *
