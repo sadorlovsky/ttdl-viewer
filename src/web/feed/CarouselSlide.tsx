@@ -3,6 +3,7 @@ import type { Post } from "../../shared/types.ts";
 import { PressButton } from "../components/PressButton.tsx";
 import { usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
+import { segmentSlots } from "./carousel.ts";
 import { bankLap, type Lap, shiftFor } from "./clock.ts";
 import type { SlideControls } from "./controls.ts";
 import { releaseLevel, setLevel } from "./loudness.ts";
@@ -82,6 +83,12 @@ export function CarouselSlide({
 	const urls = post.photos?.urls ?? [];
 	const total = urls.length;
 	const expected = post.photos?.expected ?? null;
+	// Which carousel position each entry of `urls` holds. The sequence stays dense — it is what
+	// gets played — so this is the only thing that says where a gap in it actually falls.
+	const positions = post.photos?.indexes ?? [];
+	// One entry per segment the strip draws: where that segment's image sits in the sequence, or
+	// -1 for a position that never arrived.
+	const slots = useMemo(() => segmentSlots(expected, positions), [expected, positions]);
 	const perImage = useMemo(() => cadence(post.duration, total), [post.duration, total]);
 
 	const [index, setIndex] = useState(0);
@@ -512,18 +519,18 @@ export function CarouselSlide({
 			<div className={styles.frame}>
 				{/* Story-style segments rather than a scrubber: a carousel has discrete steps. */}
 				<div className={styles.segments} data-hidden={suspended || chromeHidden || undefined}>
-					{Array.from({ length: expected ?? total }, (_, i) => {
-						const missing = i >= total;
+					{slots.map((slot, i) => {
+						const missing = slot === -1;
 						return (
 							<PressButton
-								// The image URL is the natural identity; segments past `total` are the
-								// ones ttdl never got, and their position is all they have.
-								key={urls[i] ?? `missing-${i}`}
+								// The image URL is the natural identity; a segment with no image has
+								// only its position.
+								key={missing ? `missing-${i}` : urls[slot]}
 								className={styles.segment}
 								data-missing={missing || undefined}
 								onPress={() => {
 									if (!missing) {
-										seekToSegment(i);
+										seekToSegment(slot);
 									}
 								}}
 								aria-label={missing ? `Image ${i + 1} was not downloaded` : `Go to image ${i + 1}`}
@@ -532,7 +539,9 @@ export function CarouselSlide({
 									<span
 										className={styles.segmentFill}
 										style={{
-											transform: `scaleX(${i < index ? 1 : i === index ? progress : 0})`,
+											transform: `scaleX(${
+												missing ? 0 : slot < index ? 1 : slot === index ? progress : 0
+											})`,
 										}}
 									/>
 								</span>

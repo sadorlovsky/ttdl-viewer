@@ -55,7 +55,9 @@ describe("gapClauses", () => {
 		// 4,608 listed, 4,592 on disk, 20 recorded failures — more failures than the 16-post
 		// shortfall, because a later run got some of them. The remainder is negative, so only the
 		// failures are worth reporting.
-		const result = gapClauses(counts({ archived: 4592, known: 4608, missing: 20, withoutInfo: 4, ghosts: 19 }));
+		const result = gapClauses(
+			counts({ archived: 4592, known: 4608, missing: 20, withoutInfo: 4, ghosts: 19 }),
+		);
 		expect(result).toEqual([
 			"ttdl could not fetch 20 more posts",
 			"4 here have no metadata",

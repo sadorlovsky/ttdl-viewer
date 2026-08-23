@@ -20,6 +20,10 @@ jobs:
   checks:
     name: Checks
     runs-on: ubuntu-latest
+    # Nothing here writes anything back, and the edge job below declares its own. Without this the
+    # job takes whatever the repository hands out by default.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 

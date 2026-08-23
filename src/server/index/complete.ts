@@ -22,7 +22,7 @@ function carouselComplete(expected: number, have: ReadonlySet<number>): boolean 
 }
 
 /**
- * Decide what a group of files is, mirroring ttdl's `complete_ids` (ttdl.py:232-321).
+ * Decide what a group of files is, mirroring ttdl's `complete_ids`.
  *
  * The rules, in ttdl's own terms:
  *   - an .mp4 is a complete post, full stop;

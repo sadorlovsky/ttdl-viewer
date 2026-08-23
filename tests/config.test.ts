@@ -39,8 +39,11 @@ describe("loadConfig", () => {
 
 	// 0o111 is the shape the container hits: the path resolves, and listing it does not. Root
 	// ignores the mode, so there is nothing to assert when the tests run as root.
-	test.skipIf(process.getuid?.() === 0)("names the permission when the root cannot be listed", () => {
-		chmodSync(archives, 0o111);
-		expect(() => loadConfig(["--root", archives])).toThrow(/Cannot read/);
-	});
+	test.skipIf(process.getuid?.() === 0)(
+		"names the permission when the root cannot be listed",
+		() => {
+			chmodSync(archives, 0o111);
+			expect(() => loadConfig(["--root", archives])).toThrow(/Cannot read/);
+		},
+	);
 });

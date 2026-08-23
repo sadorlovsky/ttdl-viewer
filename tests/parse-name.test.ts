@@ -34,7 +34,7 @@ describe("parseName", () => {
 	test("sidecars carrying the title", () => {
 		expect(parseName(`20260814_${ID}_Caption.info.json`)?.role).toEqual({ role: "info" });
 		expect(parseName(`20260814_${ID}_Caption.jpg`)?.role).toEqual({ role: "cover", ext: ".jpg" });
-		// Carousel covers keep the original .jpeg (ttdl.py:357).
+		// Carousel covers keep the original .jpeg — see ttdl's THUMB_EXTS.
 		expect(parseName(`20260814_${ID}_Caption.jpeg`)?.role).toEqual({ role: "cover", ext: ".jpeg" });
 		expect(parseName(`20260814_${ID}_Caption.webp`)?.role).toEqual({ role: "cover", ext: ".webp" });
 		expect(parseName(`20260814_${ID}_Caption.png`)?.role).toEqual({ role: "cover", ext: ".png" });
@@ -57,7 +57,7 @@ describe("parseName", () => {
 	});
 
 	test("a media file and its carousel images group under the same id despite different prefixes", () => {
-		// Exactly the shape ttdl's own tests build (tests/test_ttdl.py:70-88).
+		// Exactly the shape ttdl's own carousel tests build.
 		const audio = parseName(`20240101_${ID}_sound.m4a`);
 		const image = parseName(`20240101_${ID}_photo_01.jpg`);
 		expect(audio?.postId).toBe(ID);

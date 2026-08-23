@@ -110,11 +110,20 @@ export function FilterBar({ archiveId, archive, query, onQuery, total, loading }
 
 	useEffect(() => () => clearTimeout(timer.current), []);
 
+	// The debounce fires up to 220 ms after the keystroke that set it, and the query it merges into
+	// must be the one in force by then. Closing over the prop meant a filter changed inside that
+	// window — a duration preset, an author, a year — was overwritten by the copy taken when the
+	// key was pressed, and the click read as having done nothing.
+	const latest = useRef(query);
+	useEffect(() => {
+		latest.current = query;
+	}, [query]);
+
 	const commit = (value: string) => {
 		setText(value);
 		clearTimeout(timer.current);
 		timer.current = setTimeout(() => {
-			onQuery({ ...query, q: value.trim() || undefined });
+			onQuery({ ...latest.current, q: value.trim() || undefined });
 		}, 220);
 	};
 
@@ -209,8 +218,6 @@ export function FilterBar({ archiveId, archive, query, onQuery, total, loading }
 					placeholder="Search captions, authors, sounds"
 					onChange={(event) => commit(event.target.value)}
 					className={styles.input}
-					// The feed's keyboard shortcuts must not fire while typing here.
-					data-typing
 				/>
 			</label>
 

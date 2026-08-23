@@ -1,13 +1,24 @@
-node_modules
-dist
+# Everything here is sent to the daemon before the build starts, so the cost of a miss is paid on
+# every `docker compose up --build` — and on a NAS, which is where this is documented to be built,
+# that is the slowest machine it will ever run on.
+
+# Anchored with **/ on purpose: a bare `node_modules` matches the root only, the way a leading
+# slash works in .gitignore but not here.
+**/node_modules
+**/dist
+
+# The site is a separate project with its own dependencies and nothing the image copies. Its
+# node_modules alone is 460 MB.
+docs
+
+# The archives themselves. `downloads` is the default the compose file mounts from, so without
+# this line the whole library travels into the build context.
+downloads
 fixtures
+
 .git
 .github
 tests
-e2e
-test-results
-playwright-report
-*.sqlite*
 .DS_Store
 README.md
 docker-compose.yml

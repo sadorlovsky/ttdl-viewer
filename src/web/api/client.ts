@@ -113,14 +113,6 @@ export function useNeighbors(
 	});
 }
 
-export function usePost(archiveId: string, postId: string | null) {
-	return useQuery({
-		queryKey: ["post", archiveId, postId],
-		enabled: postId !== null,
-		queryFn: () => get<Post>(`/api/archives/${archiveId}/posts/${postId}`),
-	});
-}
-
 export function useRawInfo(archiveId: string, postId: string | null, enabled: boolean) {
 	return useQuery({
 		queryKey: ["info", archiveId, postId],

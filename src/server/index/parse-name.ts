@@ -1,11 +1,15 @@
 /**
  * Filename parsing, ported from ttdl.
  *
- * ttdl's output template (ttdl.py:534) is
+ * Everything below names the ttdl symbol it mirrors rather than a line in ttdl.py. The file is
+ * edited on its own schedule and nothing here checks the numbers, so they were all wrong within
+ * months; a name is what someone would grep for anyway.
+ *
+ * ttdl's output template (the `--output` passed by `download`) is
  *
  *     %(upload_date)s_%(id)s_%(title).80B.%(ext)s
  *
- * and its own recognizer (ttdl.py:55) is `^(?:\d{8}|NA)_(\d{15,})_`. Two things about that regex
+ * and its own recognizer (`NAME_RE`) is `^(?:\d{8}|NA)_(\d{15,})_`. Two things about that regex
  * carry real consequences and are worth stating rather than discovering:
  *
  *  1. It is **anchored**. A caption can easily contain a 15-digit number, and an unanchored search
@@ -13,19 +17,19 @@
  *  2. The date segment can be the literal `NA`, when yt-dlp had no upload date to give.
  *
  * The other trap is that a post's files do **not** share one prefix. Media, `.info.json`, and the
- * cover carry the title (`fetch_meta`, ttdl.py:786-788, derives sidecar names from the media
- * stem), while the carousel files do not (`fix_photos`, ttdl.py:610, uses `m.group(0)[:-1]`, which
- * stops at the underscore after the id). Grouping by prefix string therefore splits carousels in
- * half. Everything here groups by the captured **id** and classifies by suffix instead.
+ * cover carry the title (`fetch_meta` derives sidecar names from the media stem), while the
+ * carousel files do not (the carousel code keys on `m.group(0)[:-1]`, which stops at the
+ * underscore after the id). Grouping by prefix string therefore splits carousels in half.
+ * Everything here groups by the captured **id** and classifies by suffix instead.
  */
 
-/** ttdl NAME_RE (ttdl.py:55). Anchored — see the note above. */
+/** ttdl `NAME_RE`. Anchored — see the note above. */
 const NAME_RE = /^(?:\d{8}|NA)_(\d{15,})_/;
 
-/** ttdl PHOTO_INDEX_RE (ttdl.py:52). `.JPG` counts, `.jpeg` does not — match ttdl exactly. */
+/** ttdl `PHOTO_INDEX_RE`. `.JPG` counts, `.jpeg` does not — match ttdl exactly. */
 const PHOTO_INDEX_RE = /_photo_(\d+)\.jpg$/i;
 
-/** ttdl THUMB_EXTS (ttdl.py:51). Videos convert to .jpg; carousels keep the original .jpeg. */
+/** ttdl `THUMB_EXTS`. Videos convert to .jpg; carousels keep the original .jpeg. */
 export const THUMB_EXTS = [".jpg", ".jpeg", ".webp", ".png"] as const;
 
 export const MEDIA_EXTS = [".mp4", ".m4a", ".mp3"] as const;
@@ -106,7 +110,7 @@ export function parseName(name: string): ParsedName | null {
 }
 
 /**
- * Publication time from the post id alone (ttdl `post_day`, ttdl.py:178).
+ * Publication time from the post id alone (ttdl `post_day`).
  *
  * The upper 32 bits of a TikTok id are Unix seconds. BigInt is not optional here: ids exceed
  * Number.MAX_SAFE_INTEGER, and `Number(id) >> 32` silently returns garbage.
@@ -115,7 +119,12 @@ export function idToUnix(postId: string): number {
 	return Number(BigInt(postId) >> 32n);
 }
 
-/** Undo the one substitution ttdl makes in titles (ttdl.py:725) for display. */
+/**
+ * Undo the one substitution a title carries in a filename, for display.
+ *
+ * yt-dlp writes `／` where the caption had `/`, since the real character would be a directory
+ * separator; ttdl's `adopt` reproduces that when it renames a foreign file.
+ */
 export function displayTitle(title: string): string {
 	return title.replaceAll("／", "/").trim();
 }

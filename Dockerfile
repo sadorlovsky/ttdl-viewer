@@ -43,9 +43,14 @@ ENV NODE_ENV=production \
 # Archives are mounted read-only, and nothing is written anywhere, so there is no reason to be root.
 USER bun
 
+# Metadata only, and it cannot read the variable above — so it names the default. Override the
+# port and this line says nothing useful, but nothing depends on it either.
 EXPOSE 4174
 
+# Shell form, so the port is read at run time. Spelled out because overriding
+# TTDL_VIEWER_API_PORT while the check kept probing 4174 made the container flap unhealthy while
+# serving perfectly well.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget -qO- http://127.0.0.1:4174/api/stats > /dev/null || exit 1
+    CMD wget -qO- "http://127.0.0.1:${TTDL_VIEWER_API_PORT}/api/stats" > /dev/null || exit 1
 
 CMD ["bun", "src/server/index.ts"]

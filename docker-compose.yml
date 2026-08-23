@@ -23,8 +23,11 @@ services:
       # point TTDL_VIEWER_LIKES at it.
       # - ${TTDL_EXPORT:-./export}:/export:ro
 
-    environment:
-      # - TTDL_VIEWER_LIKES=/export/Likes and Favorites
+    # Uncomment both lines together. A bare `environment:` with nothing but a comment under it
+    # parses as null, which compose versions that validate the file reject outright — and the
+    # quick start in the README is the first thing that would fail.
+    # environment:
+    #   - TTDL_VIEWER_LIKES=/export/Likes and Favorites
 
     ports:
       # Bind to the host's loopback only, so the viewer is reachable from the NAS itself and over
@@ -38,9 +41,6 @@ services:
     # user — find the owner with `ls -ln` on the share and set it here as "UID:GID".
     # user: "1026:100"
 
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4174/api/stats"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
+    # No healthcheck here: the image carries the same one, and reads the port from its environment
+    # rather than naming it. This copy was exec form, where a variable is not expanded, so it went
+    # on probing 4174 whatever the port was actually set to.

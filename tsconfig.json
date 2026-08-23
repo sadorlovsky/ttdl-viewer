@@ -19,10 +19,9 @@
 		"noUncheckedIndexedAccess": true,
 		"noImplicitOverride": true,
 
-		"baseUrl": ".",
-		"paths": {
-			"@/*": ["./src/*"]
-		},
+		// No `paths` alias here on purpose. There was an `@/*` one that no file used, and vite had
+		// no matching resolve.alias — so the first import to try it would have typechecked and
+		// then failed the build. Imports are relative, with the .ts extension.
 
 		"types": ["bun", "vite/client"]
 	},

@@ -1,7 +1,7 @@
 /**
  * Parity with ttdl's completeness rule.
  *
- * Every case here is ported from `/Users/zach/code/ttdl/tests/test_ttdl.py:52-140`. The point is
+ * Every case here is ported from ttdl's own `complete_ids` tests. The point is
  * not to test our own code twice — it is that if ttdl's rule ever changes, this suite is what
  * tells us, instead of the viewer quietly disagreeing with the tool that wrote the files.
  */

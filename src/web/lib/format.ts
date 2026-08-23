@@ -87,29 +87,21 @@ export function dateRange(range: { first: number; last: number } | null): string
 /** "3 days ago" — used where a relative time reads better than an absolute one. */
 export function ago(unix: number, now = Date.now() / 1000): string {
 	const seconds = Math.max(0, now - unix);
-	const units: Array<[number, string]> = [
-		[60, "second"],
-		[3600, "minute"],
-		[86400, "hour"],
-		[604800, "day"],
-		[2629800, "week"],
-		[31557600, "month"],
+	// Each row reads "under this many seconds, count in this unit". The unit belongs to the row
+	// the value stops at, not the one before it: the table used to pair a threshold with the unit
+	// beneath it, so two hours came out as two minutes and three weeks as three days.
+	const steps = [
+		{ under: 60, per: 1, name: "second" },
+		{ under: 3600, per: 60, name: "minute" },
+		{ under: 86400, per: 3600, name: "hour" },
+		{ under: 604800, per: 86400, name: "day" },
+		{ under: 2629800, per: 604800, name: "week" },
+		{ under: 31557600, per: 2629800, name: "month" },
 	];
-	let divisor = 1;
-	let name = "second";
-	for (const [limit, unit] of units) {
-		if (seconds < limit) {
-			break;
-		}
-		divisor = limit;
-		name = unit;
-	}
-	if (seconds >= 31557600) {
-		divisor = 31557600;
-		name = "year";
-	}
-	const value = Math.floor(seconds / (name === "second" ? 1 : divisor));
-	return `${value} ${name}${value === 1 ? "" : "s"} ago`;
+	// 2629800 is an average month and 31557600 an average year, both in seconds.
+	const step = steps.find((s) => seconds < s.under) ?? { per: 31557600, name: "year" };
+	const value = Math.floor(seconds / step.per);
+	return `${value} ${step.name}${value === 1 ? "" : "s"} ago`;
 }
 
 /**

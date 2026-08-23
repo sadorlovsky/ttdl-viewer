@@ -1,13 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	findLikes,
-	parseExport,
-	readLikedState,
-	readLikes,
-} from "../src/server/index/likes.ts";
+import { findLikes, parseExport, readLikedState, readLikes } from "../src/server/index/likes.ts";
 import { STATE_DIR } from "../src/server/index/state.ts";
 
 const LIKED = "7673781569403751713";
@@ -63,7 +58,10 @@ describe("readLikes", () => {
 
 	test("finds the export below the given directory and labels each kind", () => {
 		const index = readLikes(exportDir());
-		expect(index.get(LIKED)).toEqual({ at: Date.parse("2026-08-16T18:18:02Z") / 1000, kind: "like" });
+		expect(index.get(LIKED)).toEqual({
+			at: Date.parse("2026-08-16T18:18:02Z") / 1000,
+			kind: "like",
+		});
 		expect(index.get(FAVED)).toEqual({
 			at: Date.parse("2026-08-14T22:07:26Z") / 1000,
 			kind: "favorite",

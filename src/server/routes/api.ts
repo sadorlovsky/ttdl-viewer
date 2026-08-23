@@ -29,6 +29,19 @@ const archiveOf = (registry: Registry, request: Req) => {
 	return id ? registry.get(id) : undefined;
 };
 
+/**
+ * A `?limit=` off the query string, clamped.
+ *
+ * The lower bound is the point. A negative one reaches `Array.slice`, which counts it from the
+ * end and returns the list minus its tail — a shorter answer that looks like a real one. Post
+ * queries are parsed by `parseQuery`, which already clamps; the two routes below read the
+ * parameter themselves.
+ */
+export function limitOf(params: URLSearchParams, fallback: number, most: number): number {
+	const asked = Number(params.get("limit"));
+	return Number.isFinite(asked) && asked >= 1 ? Math.min(Math.trunc(asked), most) : fallback;
+}
+
 export function apiRoutes(
 	registry: Registry,
 	config: { root: string; likesDir: string | null },
@@ -152,7 +165,7 @@ export function apiRoutes(
 			}
 			const params = new URL(request.url).searchParams;
 			const q = params.get("q")?.trim() ?? "";
-			const limit = Math.min(Number(params.get("limit") ?? 50) || 50, 200);
+			const limit = limitOf(params, 50, 200);
 			// Fuzzy matching belongs here rather than over descriptions: there are at most a few
 			// hundred authors, and nobody remembers a TikTok handle exactly.
 			const authors: AuthorSummary[] = q
@@ -167,7 +180,7 @@ export function apiRoutes(
 				return needArchive(request);
 			}
 			const params = new URL(request.url).searchParams;
-			const limit = Math.min(Number(params.get("limit") ?? 50) || 50, 500);
+			const limit = limitOf(params, 50, 500);
 			const counts = new Map<string, number>();
 			for (const post of indexed.posts) {
 				for (const tag of post.hashtags) {

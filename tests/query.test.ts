@@ -9,8 +9,8 @@
  * here rather than left to manual checking.
  */
 import { describe, expect, test } from "bun:test";
-import type { Post, PostQuery } from "../src/shared/types.ts";
 import { paginate, queryPosts, sortPosts } from "../src/server/index/query.ts";
+import type { Post, PostQuery } from "../src/shared/types.ts";
 
 function postId(tail: number, timestamp = 1_704_067_200): string {
 	return ((BigInt(timestamp) << 32n) | BigInt(tail)).toString();

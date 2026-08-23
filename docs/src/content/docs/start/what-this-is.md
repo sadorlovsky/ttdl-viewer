@@ -9,17 +9,18 @@ your disk.
 
 Nothing leaves the machine it runs on. Nothing is fetched from a CDN — not a thumbnail, not a font,
 and not the author's picture, which is shown only because ttdl already put it on disk. That is
-enforced in two places rather than merely intended: a build step that fails on any remote reference
-in the bundle, and a strict CSP on the page itself.
+enforced in three places rather than merely intended: a build step that fails on any remote
+reference in the bundle, a strict CSP on the page itself, and the indexer discarding the metadata
+fields that carry live CDN URLs.
 
 It only ever reads. Nothing here writes to an archive, renames a file, or calls ttdl — so it cannot
 damage a download that took hours to fetch.
 
 ## What you get
 
-Two screens. A **library** of the archives found under one root, each with its author card and
-counts; and a **feed** — full-screen, scroll-snapped, one post at a time, with the action rail
-showing the numbers ttdl captured.
+Three screens. A **library** of the archives found under one root, each with its author card and
+counts; a **profile grid** of one archive's posts; and a **feed** — full-screen, scroll-snapped,
+one post at a time, with the action rail showing the numbers ttdl captured.
 
 Between them sits a filter bar: search, author and hashtag pickers, date range, duration, kind, and
 eight orderings including two that only exist if you gave ttdl your

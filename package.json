@@ -15,9 +15,9 @@
 		"check-offline": "bun scripts/check-offline.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",
-		"lint": "biome check src/ scripts/",
-		"lint:fix": "biome check --write src/ scripts/",
-		"format": "biome format --write src/ scripts/"
+		"lint": "biome check src/ scripts/ tests/",
+		"lint:fix": "biome check --write src/ scripts/ tests/",
+		"format": "biome format --write src/ scripts/ tests/"
 	},
 	"dependencies": {
 		"@tanstack/react-query": "^5",

@@ -814,7 +814,9 @@ export function FeedScreen({ params }: { params: { archiveId: string; postId: st
 			<div
 				className={styles.feed}
 				ref={containerRef}
-				onPointerDown={onFeedPointerDown}
+				// No pointer-down handler here: this element sits inside the wrap above, whose
+				// capture-phase one already runs for every press that lands in the feed. Having
+				// both meant each press primed the media window and re-synced twice.
 				tabIndex={-1}
 				// The sheet says `aria-modal`; without this the feed behind it stayed in the tab order
 				// and in the accessibility tree, so Tab put the focus ring on an invisible control and

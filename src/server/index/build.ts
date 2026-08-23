@@ -77,14 +77,17 @@ export function buildPost(
 	const { at, source } = resolveDate(group, info);
 	const isVideo = classified.kind === "video";
 
+	// The positions travel with the URLs. A carousel can be missing an image from the middle, and
+	// once the URLs are packed into an array the gap is no longer visible in it — the strip would
+	// then hatch the last segment and show every picture after the gap one place too early.
+	const positions = isVideo ? [] : [...group.photos.keys()].sort((a, b) => a - b);
 	const photos = isVideo
 		? null
 		: {
 				count: group.photos.size,
 				expected: ctx.expected,
-				urls: [...group.photos.keys()]
-					.sort((a, b) => a - b)
-					.map((index) => `${base}/photo/${index}?v=${version}`),
+				urls: positions.map((index) => `${base}/photo/${index}?v=${version}`),
+				indexes: positions,
 			};
 
 	return {

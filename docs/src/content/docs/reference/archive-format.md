@@ -32,14 +32,14 @@ its posts and nothing else: no card, no counts, no list marker, until one ttdl c
 The format is only specified by `ttdl.py` itself, and three details of it will break a naive
 indexer. They are ported deliberately, and locked down by
 [`tests/complete.test.ts`](https://github.com/sadorlovsky/ttdl-viewer/blob/main/tests/complete.test.ts),
-which is ttdl's own test table (`tests/test_ttdl.py:52-140`) transcribed one-for-one — if ttdl's
-rule ever changes, that suite is what says so.
+which is ttdl's own `complete_ids` test table transcribed one-for-one — if ttdl's rule ever
+changes, that suite is what says so.
 
 ## Three details
 
 1. **A post's files do not share one prefix.** The media, `.info.json` and cover carry the caption
-   in their names; the carousel sidecars do not (`fix_photos`, ttdl.py:610, cuts the prefix at the
-   id). Everything here groups by the captured **post id** and classifies by suffix.
+   in their names; the carousel sidecars do not (ttdl's carousel code cuts the prefix at the id).
+   Everything here groups by the captured **post id** and classifies by suffix.
 2. **`NAME_RE` is anchored.** Captions routinely contain long numbers, and an unanchored search
    pulls the "id" straight out of the caption.
 3. **Carousel covers may be `.jpeg`**, while carousel *images* are always `.jpg` — `.JPG` counts,
@@ -54,7 +54,7 @@ the images that exist, and show the missing ones as hatched segments. The defaul
 bar, which appears only on an archive that actually holds one.
 
 **A date is always resolvable.** `info.timestamp` when present, otherwise the post id itself — its
-upper 32 bits are Unix seconds (`post_day`, ttdl.py:178). `createdAtSource` is exposed so the UI can
+upper 32 bits are Unix seconds (`post_day`). `createdAtSource` is exposed so the UI can
 mark an inferred date as inferred.
 
 ## What is read and thrown away

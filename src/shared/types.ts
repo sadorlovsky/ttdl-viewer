@@ -151,7 +151,16 @@ export interface Post {
 		count: number;
 		/** From `_photo.json`; null for a legacy carousel with no recorded count. */
 		expected: number | null;
+		/** The images on disk, in position order. Dense: this is the sequence that gets shown. */
 		urls: string[];
+		/**
+		 * The carousel position each `urls` entry holds, as ttdl numbers them, from 1.
+		 *
+		 * A download can stop after image 3 of 5 but it can also lose image 2 alone, and once the
+		 * URLs are packed into an array the gap is no longer visible in it. Without these the
+		 * strip can only assume every gap is at the end.
+		 */
+		indexes: number[];
 	} | null;
 
 	/**
