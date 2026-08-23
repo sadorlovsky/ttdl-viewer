@@ -173,9 +173,11 @@ Verified: `unit: tests/loudness.test.ts` for every decision; the graph itself `d
   +12 dB; unmeasured posts play untouched.
 - The graph is created only inside a gesture, never routed suspended, disconnected on unmount,
   silences the neighbours, and puts one limiter before the speakers.
-- The iOS family gets no graph at all: its pipeline cannot change a routed element's playback
-  rate, and the rate is a feature. `?boost=0` forbids the graph anywhere; `?boost=1` forces it
-  where the rule bans it.
+- The iOS family gets no graph at all, by user agent, and no flag brings one back there: its
+  pipeline cannot change a routed element's playback rate, and the rate is a feature. A
+  probe-based ban leaked — a volume getter that stores what it cannot play reads as "volume
+  works" — and a remembered `?boost=1` used to override it. `?boost=0` forbids the graph
+  anywhere; `?boost=1` forces it past the volume-probe rule on other platforms only.
 - **Changing the playback rate never changes pitch.** `preservesPitch` is the default everywhere
   and nothing unsets it; iOS holds it by staying unrouted; Chromium holds it through the graph
   (measured — 441 Hz at 1× and at 2×); Firefox holds it since 91. A change that touches the

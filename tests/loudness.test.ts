@@ -168,36 +168,41 @@ describe("needsGraph", () => {
 });
 
 describe("graphPermitted", () => {
-	test("the graph is allowed wherever `volume` works", () => {
-		expect(graphPermitted("", true)).toBe(true);
-		expect(graphPermitted("?debug=1", true)).toBe(true);
+	test("the iOS family never gets a graph, whatever the flag or the probe say", () => {
+		// The pipeline does not change the playback rate of a routed element, and the rate is a
+		// feature. Two subtler bans leaked: a volume getter that stores what it cannot play
+		// answers "volume works", and `?boost=1` — the flag the first iPhone test was run with,
+		// which an address bar remembers — used to force the graph anywhere. See the module.
+		expect(graphPermitted("", true, true)).toBe(false);
+		expect(graphPermitted("", false, true)).toBe(false);
+		expect(graphPermitted("?boost=1", true, true)).toBe(false);
+		expect(graphPermitted("?boost=1&debug=1", false, true)).toBe(false);
 	});
 
-	test("a browser that ignores `volume` gets no graph", () => {
-		// The iOS family. Not for the ringer switch — that wisdom tested wrong — but because the
-		// pipeline does not change the playback rate of a routed element: with the graph on, the
-		// press-and-hold speed-up and the rate menu both stopped working. See the module.
-		expect(graphPermitted("", false)).toBe(false);
-		expect(graphPermitted("?debug=1", false)).toBe(false);
+	test("elsewhere the graph is allowed wherever `volume` works", () => {
+		expect(graphPermitted("", true, false)).toBe(true);
+		expect(graphPermitted("?debug=1", true, false)).toBe(true);
+	});
+
+	test("elsewhere a browser that ignores `volume` gets no graph", () => {
+		expect(graphPermitted("", false, false)).toBe(false);
+		expect(graphPermitted("?debug=1", false, false)).toBe(false);
 	});
 
 	test("`?boost=0` forbids the graph anywhere", () => {
-		// The escape hatch for a device that turns out to need one, without a deploy.
-		expect(graphPermitted("?boost=0", true)).toBe(false);
-		expect(graphPermitted("?debug=1&boost=0", false)).toBe(false);
+		expect(graphPermitted("?boost=0", true, false)).toBe(false);
+		expect(graphPermitted("?debug=1&boost=0", false, false)).toBe(false);
 	});
 
-	test("`?boost=1` forces it where the rule bans it", () => {
-		// The re-test path: a future WebKit that can run a routed element fast is tried with a
-		// flag rather than a deploy.
-		expect(graphPermitted("?boost=1", false)).toBe(true);
-		expect(graphPermitted("?boost=1", true)).toBe(true);
+	test("`?boost=1` forces it past the volume-probe rule, and only that rule", () => {
+		expect(graphPermitted("?boost=1", false, false)).toBe(true);
+		expect(graphPermitted("?boost=1", true, false)).toBe(true);
 	});
 
 	test("anything else in the flag is not an answer", () => {
-		expect(graphPermitted("?boost=no", true)).toBe(true);
-		expect(graphPermitted("?boost=no", false)).toBe(false);
-		expect(graphPermitted("?boost=", true)).toBe(true);
+		expect(graphPermitted("?boost=no", true, false)).toBe(true);
+		expect(graphPermitted("?boost=no", false, false)).toBe(false);
+		expect(graphPermitted("?boost=", true, false)).toBe(true);
 	});
 });
 

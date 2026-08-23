@@ -98,29 +98,32 @@ export function nodeGain(correction: number, volume: number, audible = true): nu
 /**
  * Whether the graph may be built at all.
  *
- * This shipped banning iOS, on the received wisdom that a media element routed through WebAudio
- * has its sound silenced by the ringer switch where an unrouted one does not. That wisdom tested
- * wrong — the session is the playing element's, and the switch does not touch it — so the ban
- * came off. It goes back on for a reason the ringer test could not have found: WebKit's media
- * pipeline does not change the playback rate of a routed element. With the graph on, on an
- * iPhone, the press-and-hold speed-up and the rate menu both stopped working — the video held
- * its pace and jumped as it re-synced, while the pitch crept up by less than the rate asked
- * for. Routing is a one-way door, so an element cannot be let out of the graph for the length
- * of a hold; the only rate the graph leaves working is 1, and the rate is a feature. Unrouted
- * is how iOS played before the graph existed, so the ban costs it the correction and nothing
- * else.
+ * The iOS family never gets one, and nothing overrides that. WebKit's media pipeline does not
+ * change the playback rate of a routed element: with the graph on, on an iPhone, the
+ * press-and-hold speed-up and the rate menu stop working — the video holds its pace and jumps as
+ * it re-syncs, while the pitch drifts up. Routing is a one-way door, so an element cannot be let
+ * out of the graph for the length of a hold; the only rate the graph leaves working is 1, and the
+ * rate is a feature. Unrouted is how iOS played before the graph existed, so the ban costs it the
+ * correction and nothing else.
  *
- * The platform is recognised by the `honoursVolume` probe rather than by a user agent string:
- * the browsers that ignore `volume` are the iOS-family WebKit builds, which are the ones whose
- * pipeline this distrusts. `volumeWorks` is that probe's answer.
+ * The ban is the platform's, by user agent, after two subtler versions of it leaked in the field.
+ * Recognising iOS by the `honoursVolume` probe assumed a getter that reports 1 whatever was
+ * written; a getter that stores the value while the sound ignores it answers "volume works" and
+ * lifts the ban on exactly the platform it exists for. And `?boost=1` used to force the graph on
+ * anywhere — the very flag the first iPhone test was run with, which an address bar remembers and
+ * offers back. Either leak routed every post asking to be made louder, which in a measured
+ * archive is the median post. Re-testing a future WebKit now means editing this function, not
+ * finding a flag.
  *
- * The flag overrides in both directions: `?boost=0` forbids the graph anywhere, and `?boost=1`
- * forces it where this rule bans it — which is how the rate bug gets re-tested on a future
- * WebKit without a deploy, the same way the ringer ban was.
+ * `?boost=0` still forbids the graph on any platform. Elsewhere `?boost=1` still forces it past
+ * the volume-probe rule, which is a rule about expressiveness rather than about this bug.
  *
  * Pure, and takes what it reads: the decision has to be checkable without a browser to run it in.
  */
-export function graphPermitted(search: string, volumeWorks: boolean): boolean {
+export function graphPermitted(search: string, volumeWorks: boolean, appleTouch: boolean): boolean {
+	if (appleTouch) {
+		return false;
+	}
 	const flag = new URLSearchParams(search).get("boost");
 	if (flag === "0") {
 		return false;
@@ -129,6 +132,20 @@ export function graphPermitted(search: string, volumeWorks: boolean): boolean {
 		return true;
 	}
 	return volumeWorks;
+}
+
+/**
+ * iOS and iPadOS, where every browser is WebKit over the same media pipeline. Detected by user
+ * agent because the failure this gates is not observable up front — the only feature test is
+ * routing an element and watching the rate break, which is the very thing being avoided. The
+ * `maxTouchPoints` clause is for iPadOS, which reports itself as a Mac. Twin of NEEDS_SOUND_SWAP
+ * in FeedScreen, kept separate so this module still loads where `navigator` does not exist.
+ */
+function appleTouch(): boolean {
+	return (
+		/iP(hone|ad|od)/.test(navigator.platform) ||
+		(navigator.userAgent.includes("Mac") && navigator.maxTouchPoints > 1)
+	);
 }
 
 /**
@@ -143,7 +160,7 @@ let allowed: boolean | null = null;
 
 export function graphAllowed(element?: HTMLMediaElement): boolean {
 	if (allowed === null) {
-		allowed = graphPermitted(window.location.search, honoursVolume(element));
+		allowed = graphPermitted(window.location.search, honoursVolume(element), appleTouch());
 	}
 	return allowed;
 }
@@ -151,10 +168,10 @@ export function graphAllowed(element?: HTMLMediaElement): boolean {
 /**
  * Whether writing to `element.volume` does anything on this browser, asked rather than assumed.
  *
- * iOS answers no — it reports 1 however it is set — and that is the whole reason this exists: a
- * platform sniff would have to be kept in step with whichever browsers inherit the behaviour,
- * while the property either works or does not and can simply be tried. Half a millisecond, once
- * per page, on an element that has not started playing.
+ * The probe has a limit it cannot see past: it reads the property back, and a getter that stores
+ * the value while the sound ignores it answers yes to a volume that does nothing. That is why the
+ * iOS ban above stopped relying on it. Here it decides only how a correction is expressed on the
+ * platforms that get one, where the answer has held up.
  */
 let honoured: boolean | null = null;
 
