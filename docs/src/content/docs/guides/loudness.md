@@ -21,6 +21,25 @@ bun run start                # the levels are simply even
 Running it against an archive the viewer already has open needs no restart: `loudness.json` is in
 the change probe, and `ttdl.py loudness` on a finished archive rewrites nothing else at all.
 
+## Turning it off
+
+*Normalize* is a switch in the long-press sheet, on by default and remembered per device. Off means
+every post plays at whatever it was mastered at: the correction becomes 0, a correction of 0 needs no
+gain node, so no element is routed and no `AudioContext` is created at all.
+
+Turned off partway through a session, the corrections already in the graph ramp to unity rather than
+being torn out. A node at unity and an element that was never routed play the same post at the same
+level, and routing cannot be undone in any case.
+
+`?normalize=0` turns the correction off for one page load and `?normalize=1` turns it on. Neither is
+written back, so a link changes what somebody hears while they are on it and not what they have set;
+touching the switch clears the override.
+
+The row appears only where a correction can reach the speakers by one route or the other. The iOS
+family has neither — the graph is banned there and `volume` is ignored — so the switch would have no
+position that changes a post, and the sheet leaves it out. The flags are still read there, and still
+move the `gain=` readout below.
+
 ## Two ways to apply it, and the browser picks
 
 `element.volume` costs nothing and expresses attenuation exactly. It cannot amplify — the property
@@ -111,12 +130,20 @@ carries what it can in `volume`.
 | `gain=` | meaning |
 |---|---|
 | `-5.1` / `12.0` | the correction is on the post, through the node or through `volume` |
+| `flat` | *Normalize* is off — the post plays as it was mastered |
 | `wait` | it needs the graph, and no gesture has created the context yet |
 | `off` | it needs the graph, and `?boost=0` forbade one |
 | `deaf` | `volume` is ignored here and there is no graph — nothing is applied |
 | `0.0` | the post asked for nothing |
 
-`?boost=0` turns the graph off anywhere, without a deploy. `?boost=1` forces it on only past the
+`flat` is decided before any of the others, because a switched-off post has a correction of 0 and
+needs no graph for it: asked in any other order it would print `0.0`, which is the reading for a post
+ttdl found nothing to fix.
+
+`?boost=0` turns the graph off anywhere, without a deploy. It is not an alias of `?normalize=0`: it
+forbids the graph and leaves `volume` correcting whatever it still can, which on a browser that
+honours the property is every loud post still pulled down. On the iOS family, where there is no
+graph to forbid and `volume` is ignored, it changes nothing. `?boost=1` forces it on only past the
 volume-probe rule on other platforms — on the iOS family it does nothing, because an address bar
 remembers old URLs and a remembered flag kept resurrecting the graph there. Re-testing a future
 WebKit means editing `graphPermitted`, not finding a flag. The flag has answered one question
