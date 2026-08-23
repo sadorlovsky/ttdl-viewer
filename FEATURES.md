@@ -93,6 +93,10 @@ Verified: `device`, on both scenes.
   fix it; transient faults keep the badge and retry on tap.
 - A pause nobody asked for is taken back, three times at most; the viewer's own pause, the
   sheet's, and the feed's are all flagged and never fought.
+- The speed-up's rate writes record the post's position, and a resume landing more than 0.4s away
+  within a second of the write is put back there. On an iPhone the rate change rebuilds the
+  pipeline and comes back seconds away in either direction; the short stop stays, the seek does
+  not. Chromium never enters this path — it fires no events on a rate change.
 - Buffering shows a shimmer, then "still reading from disk" after four seconds.
 - Posts loop; with Auto scroll on, the ended post hands the feed to the next one, and the archive
   ends on the final frame of the final post.

@@ -52,6 +52,19 @@ const HAVE_FUTURE_DATA = 3;
 /** How many times an unasked-for pause is taken back before the element is left alone. */
 const MAX_RESUMES = 3;
 
+/**
+ * How long a rate change is allowed to unsettle playback, and the deviation that reads as a snap.
+ *
+ * On an iPhone, changing `playbackRate` rebuilds the playback pipeline, and the element comes back
+ * from that pause seconds away from where the viewer was — in either direction, at both ends of
+ * the speed-up. The pause cannot be prevented and the resume must stay immediate (deferring it is
+ * how the speed-up stopped working altogether), so what is held instead is the position: the two
+ * rate writes below record it, and a resume that lands further than the threshold from it is put
+ * back. Drift under the threshold is the transition itself and is left alone.
+ */
+const TRANSITION_MS = 1000;
+const SNAP_S = 0.4;
+
 /** MediaError codes. Only the two that describe the file itself are named; see `describeFailure`. */
 const MEDIA_ERR_DECODE = 3;
 const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
@@ -168,6 +181,24 @@ export function VideoSlide({
 	 */
 	const resumes = useRef(0);
 
+	/** Where the post was when the hold last changed its rate, and when. See TRANSITION_MS. */
+	const transition = useRef<{ at: number; from: number } | null>(null);
+
+	/** Put a resume that came back somewhere else back where the viewer was. */
+	const holdPosition = useCallback((video: HTMLVideoElement) => {
+		const marked = transition.current;
+		if (!marked || performance.now() - marked.at > TRANSITION_MS) {
+			return;
+		}
+		// Near the loop seam a jump back to the start is the wrap, not the snap.
+		if (Number.isFinite(video.duration) && marked.from > video.duration - 1.5) {
+			return;
+		}
+		if (Math.abs(video.currentTime - marked.from) > SNAP_S) {
+			video.currentTime = marked.from;
+		}
+	}, []);
+
 	/** Held fast by a press near the leading edge; also what puts the readout on screen. */
 	const [boosted, setBoosted] = useState(false);
 	/**
@@ -192,6 +223,7 @@ export function VideoSlide({
 			// does, and a reload landing mid-press should come back at the rate that was chosen
 			// rather than at the one being borrowed.
 			if (x < BOOST_ZONE && video) {
+				transition.current = { at: performance.now(), from: video.currentTime };
 				video.playbackRate = boostedRate(rate);
 				setBoosted(true);
 				return;
@@ -202,6 +234,7 @@ export function VideoSlide({
 			setBoosted(false);
 			const video = videoRef.current;
 			if (video) {
+				transition.current = { at: performance.now(), from: video.currentTime };
 				video.playbackRate = rate;
 			}
 		},
@@ -556,7 +589,10 @@ export function VideoSlide({
 				onWaiting={() => setBuffering(true)}
 				onStalled={() => setBuffering(true)}
 				onPlay={() => setPaused(false)}
-				onPlaying={() => {
+				onPlaying={(event) => {
+					// The pipeline can also come back somewhere else without ever pausing; this is
+					// the one event that always follows the transition, whichever shape it took.
+					holdPosition(event.currentTarget);
 					setBuffering(false);
 					resumes.current = 0;
 					setRefused(null);
@@ -600,6 +636,9 @@ export function VideoSlide({
 						!video.ended &&
 						resumes.current < MAX_RESUMES
 					) {
+						// Before the restart, so it resumes from where the viewer was rather than
+						// from wherever the rebuilt pipeline happened to land.
+						holdPosition(video);
 						resumes.current++;
 						start();
 					}
