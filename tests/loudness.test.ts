@@ -168,24 +168,36 @@ describe("needsGraph", () => {
 });
 
 describe("graphPermitted", () => {
-	test("the graph is allowed by default, on every platform", () => {
-		// It was not, once: iOS was banned on the received wisdom that a routed element obeys the
-		// ringer switch. Tried on an iPhone with `?boost=1&debug=1` — sound on, `boost=12.0` in
-		// the panel, switch flipped to silent, nothing changed. The ban is gone; see the module.
-		expect(graphPermitted("")).toBe(true);
-		expect(graphPermitted("?debug=1")).toBe(true);
+	test("the graph is allowed wherever `volume` works", () => {
+		expect(graphPermitted("", true)).toBe(true);
+		expect(graphPermitted("?debug=1", true)).toBe(true);
 	});
 
-	test("`?boost=0` turns it off, which is the only thing that does", () => {
+	test("a browser that ignores `volume` gets no graph", () => {
+		// The iOS family. Not for the ringer switch — that wisdom tested wrong — but because the
+		// pipeline does not change the playback rate of a routed element: with the graph on, the
+		// press-and-hold speed-up and the rate menu both stopped working. See the module.
+		expect(graphPermitted("", false)).toBe(false);
+		expect(graphPermitted("?debug=1", false)).toBe(false);
+	});
+
+	test("`?boost=0` forbids the graph anywhere", () => {
 		// The escape hatch for a device that turns out to need one, without a deploy.
-		expect(graphPermitted("?boost=0")).toBe(false);
-		expect(graphPermitted("?debug=1&boost=0")).toBe(false);
+		expect(graphPermitted("?boost=0", true)).toBe(false);
+		expect(graphPermitted("?debug=1&boost=0", false)).toBe(false);
+	});
+
+	test("`?boost=1` forces it where the rule bans it", () => {
+		// The re-test path: a future WebKit that can run a routed element fast is tried with a
+		// flag rather than a deploy.
+		expect(graphPermitted("?boost=1", false)).toBe(true);
+		expect(graphPermitted("?boost=1", true)).toBe(true);
 	});
 
 	test("anything else in the flag is not an answer", () => {
-		expect(graphPermitted("?boost=1")).toBe(true);
-		expect(graphPermitted("?boost=no")).toBe(true);
-		expect(graphPermitted("?boost=")).toBe(true);
+		expect(graphPermitted("?boost=no", true)).toBe(true);
+		expect(graphPermitted("?boost=no", false)).toBe(false);
+		expect(graphPermitted("?boost=", true)).toBe(true);
 	});
 });
 

@@ -24,7 +24,8 @@
  * So the graph is used where it is needed and not where it is not: always for amplification,
  * which `volume` cannot do; for attenuation only where `volume` is ignored. Which of those a
  * browser is, is asked of a real element (see `honoursVolume`) rather than guessed from a user
- * agent string.
+ * agent string. The iOS family is the exception and gets no graph at all — routing there costs
+ * the playback rate, which `graphPermitted` explains.
  *
  * The measurements are why any of this is worth the trouble. Over four archives here — 98 posts
  * measured whole, 30 sampled from each of the others — the median post asks to be made *louder*:
@@ -98,21 +99,36 @@ export function nodeGain(correction: number, volume: number, audible = true): nu
  * Whether the graph may be built at all.
  *
  * This shipped banning iOS, on the received wisdom that a media element routed through WebAudio
- * has its sound silenced by the ringer switch where an unrouted one does not — a feed that goes
- * mute because a hardware switch was flipped being worse than a few quiet posts staying quiet.
- * The ban was written to be tested rather than believed, and the test says it is wrong: on an
- * iPhone, at a post asking for +26 dB, with the panel reading `gain=12.0`, flipping the switch to
- * silent changed nothing. The wisdom describes a context playing on its own; this one is fed by a
- * `<video>` that is already playing, so the session is the element's, and that is not the session
- * the switch silences.
+ * has its sound silenced by the ringer switch where an unrouted one does not. That wisdom tested
+ * wrong — the session is the playing element's, and the switch does not touch it — so the ban
+ * came off. It goes back on for a reason the ringer test could not have found: WebKit's media
+ * pipeline does not change the playback rate of a routed element. With the graph on, on an
+ * iPhone, the press-and-hold speed-up and the rate menu both stopped working — the video held
+ * its pace and jumped as it re-synced, while the pitch crept up by less than the rate asked
+ * for. Routing is a one-way door, so an element cannot be let out of the graph for the length
+ * of a hold; the only rate the graph leaves working is 1, and the rate is a feature. Unrouted
+ * is how iOS played before the graph existed, so the ban costs it the correction and nothing
+ * else.
  *
- * So there is no platform rule left, and the flag stays anyway: `?boost=0` turns the graph off on
- * a device that turns out to need it off, without a deploy.
+ * The platform is recognised by the `honoursVolume` probe rather than by a user agent string:
+ * the browsers that ignore `volume` are the iOS-family WebKit builds, which are the ones whose
+ * pipeline this distrusts. `volumeWorks` is that probe's answer.
+ *
+ * The flag overrides in both directions: `?boost=0` forbids the graph anywhere, and `?boost=1`
+ * forces it where this rule bans it — which is how the rate bug gets re-tested on a future
+ * WebKit without a deploy, the same way the ringer ban was.
  *
  * Pure, and takes what it reads: the decision has to be checkable without a browser to run it in.
  */
-export function graphPermitted(search: string): boolean {
-	return new URLSearchParams(search).get("boost") !== "0";
+export function graphPermitted(search: string, volumeWorks: boolean): boolean {
+	const flag = new URLSearchParams(search).get("boost");
+	if (flag === "0") {
+		return false;
+	}
+	if (flag === "1") {
+		return true;
+	}
+	return volumeWorks;
 }
 
 /**
@@ -125,9 +141,9 @@ export function graphPermitted(search: string): boolean {
  */
 let allowed: boolean | null = null;
 
-export function graphAllowed(): boolean {
+export function graphAllowed(element?: HTMLMediaElement): boolean {
 	if (allowed === null) {
-		allowed = graphPermitted(window.location.search);
+		allowed = graphPermitted(window.location.search, honoursVolume(element));
 	}
 	return allowed;
 }
@@ -142,12 +158,15 @@ export function graphAllowed(): boolean {
  */
 let honoured: boolean | null = null;
 
-function honoursVolume(element: HTMLMediaElement): boolean {
+function honoursVolume(element?: HTMLMediaElement): boolean {
 	if (honoured === null) {
-		const before = element.volume;
-		element.volume = 0.5;
-		honoured = element.volume !== 1;
-		element.volume = before;
+		// Whatever element is at hand, or a detached one when the question arrives before any
+		// slide has mounted — the behaviour is the platform's, not the element's.
+		const probe = element ?? document.createElement("audio");
+		const before = probe.volume;
+		probe.volume = 0.5;
+		honoured = probe.volume !== 1;
+		probe.volume = before;
 	}
 	return honoured;
 }
@@ -280,7 +299,7 @@ function render(element: HTMLMediaElement): void {
 	 */
 	if (!needsGraph(level.correction, honoursVolume(element))) {
 		element.dataset.gain = level.correction.toFixed(1);
-	} else if (!graphAllowed()) {
+	} else if (!graphAllowed(element)) {
 		element.dataset.gain = honoursVolume(element) ? "off" : "deaf";
 	} else {
 		element.dataset.gain = "wait";
@@ -292,7 +311,7 @@ function flush(): void {
 		return;
 	}
 	for (const [element, level] of levels) {
-		if (graphAllowed() && needsGraph(level.correction, honoursVolume(element))) {
+		if (graphAllowed(element) && needsGraph(level.correction, honoursVolume(element))) {
 			connect(element);
 		}
 		render(element);
@@ -317,7 +336,7 @@ export function setLevel(
 ): void {
 	const correction = correctionFor(post);
 	levels.set(element, { correction, volume, audible });
-	if (graphAllowed() && needsGraph(correction, honoursVolume(element))) {
+	if (graphAllowed(element) && needsGraph(correction, honoursVolume(element))) {
 		connect(element);
 	}
 	render(element);
