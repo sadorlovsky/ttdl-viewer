@@ -52,6 +52,21 @@ const HAVE_FUTURE_DATA = 3;
 /** How many times an unasked-for pause is taken back before the element is left alone. */
 const MAX_RESUMES = 3;
 
+/**
+ * How long an element is allowed to be unsettled after its rate changed.
+ *
+ * WebKit rebuilds its playback pipeline when `playbackRate` moves away from 1, because that is
+ * where the pitch-preserving time stretcher is switched in, and on iOS the rebuild surfaces as a
+ * pause and a stall on an element that carries on by itself a moment later. Everything below
+ * treats those as the transition rather than as the browser stopping the post: nothing on screen
+ * reacts to them, and nothing issues a `play()` into a decoder that is still rebuilding — which
+ * is a second start against the first and lands as a seek backwards.
+ *
+ * Long enough to cover the rebuild, short enough that an element which really did stop is
+ * answered while the viewer is still looking at it.
+ */
+const RATE_SETTLE_MS = 600;
+
 /** MediaError codes. Only the two that describe the file itself are named; see `describeFailure`. */
 const MEDIA_ERR_DECODE = 3;
 const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
@@ -168,6 +183,32 @@ export function VideoSlide({
 	 */
 	const resumes = useRef(0);
 
+	/** When the rate last actually changed, for `settling` below. 0 before it ever has. */
+	const rateChangedAt = useRef(0);
+	/** The deferred check that decides whether a pause inside a transition was real. */
+	const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+	/** Whether the element is still inside a rate change. See RATE_SETTLE_MS. */
+	const settling = useCallback(
+		() => rateChangedAt.current > 0 && performance.now() - rateChangedAt.current < RATE_SETTLE_MS,
+		[],
+	);
+
+	/**
+	 * Every write to `playbackRate` goes through here, so the handlers can tell a transition from
+	 * a stop. Marked only on a real change: the effect below rewrites the rate whenever the volume
+	 * or the post changes too, and those are not transitions.
+	 */
+	const applyRate = useCallback((video: HTMLVideoElement, value: number) => {
+		if (video.playbackRate !== value) {
+			rateChangedAt.current = performance.now();
+		}
+		video.playbackRate = value;
+	}, []);
+
+	// A deferred check that outlived the slide would read a detached element and start it.
+	useEffect(() => () => clearTimeout(settleTimer.current), []);
+
 	/** Held fast by a press near the leading edge; also what puts the readout on screen. */
 	const [boosted, setBoosted] = useState(false);
 	/**
@@ -192,7 +233,7 @@ export function VideoSlide({
 			// does, and a reload landing mid-press should come back at the rate that was chosen
 			// rather than at the one being borrowed.
 			if (x < BOOST_ZONE && video) {
-				video.playbackRate = boostedRate(rate);
+				applyRate(video, boostedRate(rate));
 				setBoosted(true);
 				return;
 			}
@@ -202,7 +243,7 @@ export function VideoSlide({
 			setBoosted(false);
 			const video = videoRef.current;
 			if (video) {
-				video.playbackRate = rate;
+				applyRate(video, rate);
 			}
 		},
 		onTap: () => tap.current(),
@@ -277,8 +318,8 @@ export function VideoSlide({
 		 * the chosen rate.
 		 */
 		video.defaultPlaybackRate = rate;
-		video.playbackRate = rate;
-	}, [muted, volume, rate, post, active]);
+		applyRate(video, rate);
+	}, [muted, volume, rate, post, active, applyRate]);
 
 	// The level above is applied to a graph when the browser needs one, and that record has to be
 	// dropped when the element goes: it is keyed on an element that is about to stop existing.
@@ -567,6 +608,35 @@ export function VideoSlide({
 					}
 				}}
 				onPause={(event) => {
+					/*
+					 * A pause inside a rate change is the pipeline being rebuilt, and the element is
+					 * about to carry on by itself.
+					 *
+					 * Nothing may react to it. Reporting it paused paints a play badge over a post
+					 * that is still running, and taking it back with a `play()` is a second start
+					 * against the one already under way — on iOS that pair is what turned the
+					 * speed-up into a stall and a jump backwards. So the transition is given its
+					 * moment, and only what is still stopped afterwards is treated as stopped.
+					 */
+					if (settling()) {
+						const element = event.currentTarget;
+						clearTimeout(settleTimer.current);
+						settleTimer.current = setTimeout(() => {
+							setPaused(element.paused);
+							if (
+								element.paused &&
+								activeRef.current &&
+								!suspendedRef.current &&
+								!userPausedRef.current &&
+								!element.ended &&
+								resumes.current < MAX_RESUMES
+							) {
+								resumes.current++;
+								start();
+							}
+						}, RATE_SETTLE_MS);
+						return;
+					}
 					setPaused(true);
 					// A pause is an answer; it is not the element still reading.
 					setBuffering(false);
