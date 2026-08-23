@@ -93,6 +93,10 @@ Verified: `device`, on both scenes.
   fix it; transient faults keep the badge and retry on tap.
 - A pause nobody asked for is taken back, three times at most; the viewer's own pause, the
   sheet's, and the feed's are all flagged and never fought.
+- A pause arriving inside a rate change is the pipeline being rebuilt rather than a stop. For the
+  settle window nothing on screen reacts to it and nothing resumes into it; what is still stopped
+  when the window closes is treated as stopped. WebKit rebuilds whenever the rate moves away from
+  1×, and the `play()` that used to answer that pause landed as a seek backwards on iOS.
 - Buffering shows a shimmer, then "still reading from disk" after four seconds.
 - Posts loop; with Auto scroll on, the ended post hands the feed to the next one, and the archive
   ends on the final frame of the final post.
