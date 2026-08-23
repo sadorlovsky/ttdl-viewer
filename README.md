@@ -84,7 +84,8 @@ ttdl.py get "TikTok Saved" --likes tiktok-export   # once, in ttdl
 
 **Stop riding the volume knob.** ttdl measures every post to EBU R128 without re-encoding it; the
 viewer plays each one at the level it asks for, through `element.volume` or a WebAudio graph
-depending on what the browser honours:
+depending on what the browser honours — or at whatever it was mastered at, if you turn the switch
+off:
 
 ```bash
 ttdl.py loudness @username    # once, in ttdl — offline, minutes for a few thousand

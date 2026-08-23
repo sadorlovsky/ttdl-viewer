@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Post } from "../../shared/types.ts";
 import { PressButton } from "../components/PressButton.tsx";
-import { usePlayer } from "../store/player.ts";
+import { normalizeOn, usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import { segmentSlots } from "./carousel.ts";
 import { bankLap, type Lap, shiftFor } from "./clock.ts";
@@ -76,6 +76,7 @@ export function CarouselSlide({
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const muted = usePlayer((state) => state.muted);
 	const volume = usePlayer((state) => state.volume);
+	const normalize = usePlayer(normalizeOn);
 	const rate = usePlayer((state) => state.rate);
 	const pan = usePlayer((state) => state.pan);
 	const autoAdvance = usePlayer((state) => state.autoAdvance);
@@ -199,7 +200,7 @@ export function CarouselSlide({
 			return;
 		}
 		// As in the video slide: audibility belongs to the level, not to the element's flags.
-		setLevel(audio, post, volume, active && !muted);
+		setLevel(audio, post, volume, active && !muted, normalize);
 		// Keep the element playing even with the sound off. Autoplay policy allows a muted
 		// element, and `currentTime` is the clock the images run on — stopping it would freeze
 		// the slideshow whenever the user mutes.
@@ -209,7 +210,7 @@ export function CarouselSlide({
 		// `playbackRate` to `defaultPlaybackRate` every time a slide mounts. See the video slide.
 		audio.defaultPlaybackRate = rate;
 		audio.playbackRate = rate;
-	}, [muted, volume, rate, post, active]);
+	}, [muted, volume, rate, post, active, normalize]);
 
 	// The level above is applied to a graph when the browser needs one, and that record has to be
 	// dropped when the element goes: it is keyed on an element that is about to stop existing.

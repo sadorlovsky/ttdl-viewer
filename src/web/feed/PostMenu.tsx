@@ -16,11 +16,13 @@ import {
 	FullscreenIcon,
 	InfoIcon,
 	KeysIcon,
+	LevelsIcon,
 	PanIcon,
 	PipIcon,
 	SpeedIcon,
 } from "../components/Icons.tsx";
-import { RATES, usePlayer } from "../store/player.ts";
+import { normalizeOn, RATES, usePlayer } from "../store/player.ts";
+import { correctionPossible, resumeAudio } from "./loudness.ts";
 import styles from "./PostMenu.module.css";
 
 /**
@@ -113,6 +115,11 @@ export function PostMenu({
 	const autoAdvance = usePlayer((state) => state.autoAdvance);
 	const pan = usePlayer((state) => state.pan);
 	const setPan = usePlayer((state) => state.setPan);
+	const normalize = usePlayer(normalizeOn);
+	const setNormalize = usePlayer((state) => state.setNormalize);
+	// Asked of the platform rather than of the post: where neither the graph nor `volume` can
+	// carry a correction, the switch has nothing to switch. See loudness.ts.
+	const correctable = correctionPossible();
 	const setAutoAdvance = usePlayer((state) => state.setAutoAdvance);
 
 	const sheetRef = useRef<HTMLDivElement>(null);
@@ -409,6 +416,29 @@ export function PostMenu({
 							))}
 						</div>
 					</div>
+
+					{/* Only where a correction can land at all: on iOS both routes are closed. */}
+					{correctable && (
+						<button
+							className={styles.row}
+							role="switch"
+							aria-checked={normalize}
+							onClick={() => {
+								setNormalize(!normalize);
+								// Spend the click. An `AudioContext` created inside a gesture may start
+								// running and one created at any other moment starts suspended — so
+								// turning this on anywhere else would correct nothing until the viewer
+								// happened to touch the feed again. See loudness.ts.
+								if (!normalize) {
+									resumeAudio(true);
+								}
+							}}
+						>
+							<LevelsIcon size={20} className={styles.icon} />
+							<span className={styles.label}>Normalize</span>
+							<span className={styles.switch} data-on={normalize || undefined} aria-hidden />
+						</button>
+					)}
 
 					<button className={styles.row} onClick={run(onClearDisplay)}>
 						<EyeOffIcon size={20} className={styles.icon} />

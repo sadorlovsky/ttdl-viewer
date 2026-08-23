@@ -28,7 +28,7 @@ both lists keeps its like date, since that is the list it primarily belongs to. 
 
 A boosted element plays through a WebAudio graph, and what an AirPlay target receives from one — the
 element's own audio, or the graph's — was never checked. `?boost=0` turns the graph off if it turns
-out to matter.
+out to matter, and *Normalize* turns the whole correction off.
 
 ## No authentication
 

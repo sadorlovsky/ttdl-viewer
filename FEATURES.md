@@ -25,7 +25,7 @@ feature listed against it, on every platform, whether or not any module names th
 | the pointer stream | one surface deciding tap, hold and swipe; the feed's capture-phase press handler; `data-interactive` opt-outs | tap-to-pause, both holds, carousel swipe, the scrubber, segments, priming, waking the graph |
 | the scroll position | it *is* the active index; snap; `goTo`; the arrival jump; the grid breadcrumb | active tracking, keyboard navigation, auto scroll, deep links, scroll restoration |
 | the URL | route carries archive and post id, query carries the whole filter state; rewritten with `replace` on every snap | deep links, filters, hashtag jumps, back to the grid, shareable positions |
-| the player store (persisted) | `muted`, `volume`, `rate`, `autoAdvance`, `pan`, the hint flag | every slide at once — a rate chosen on one post is every post's rate |
+| the player store (persisted) | `muted`, `volume`, `rate`, `autoAdvance`, `pan`, `normalize`, the hint flag | every slide at once — a rate chosen on one post is every post's rate |
 | the autoplay and audio-session policy | rights are granted per gesture and per element | autoplay fallback, priming, the speaker button's iOS restart, graph creation |
 
 The decoder budget is a surface too: five mounted media elements (window ±2) plus whatever a tile
@@ -160,9 +160,9 @@ Verified: `device`.
 - Opening pauses the post only if it was playing, and closing resumes only what the sheet itself
   paused, only if that slide is still the active one. The feed underneath is inert.
 - Rows: Copy link · Open at the source (*leaves the archive* — the product's one outward action) ·
-  Keys and gestures · Raw metadata ("none on disk" when so) · Speed 0.5/1/1.5/2 · Clear display ·
-  Auto scroll · Photo zoom (carousels) · Picture-in-Picture (videos, where the browser has it) ·
-  Fullscreen · Debug readout. Rows that cannot act on this post do not appear.
+  Keys and gestures · Raw metadata ("none on disk" when so) · Speed 0.5/1/1.5/2 · Normalize (where a correction can land) ·
+  Clear display · Auto scroll · Photo zoom (carousels) · Picture-in-Picture (videos, where the
+  browser has it) · Fullscreen · Debug readout. Rows that cannot act on this post do not appear.
 
 ## Loudness and the pitch invariant
 
@@ -171,6 +171,16 @@ Verified: `unit: tests/loudness.test.ts` for every decision; the graph itself `d
 - Corrections come from `.ttdl/loudness.json`, applied through `element.volume` where that is
   honoured and expressive enough, through a WebAudio gain otherwise; amplification stops at
   +12 dB; unmeasured posts play untouched.
+- *Normalize* in the sheet turns the whole correction off, on by default and persisted. Off is
+  answered in `correctionFor`, so every correction becomes 0 and nothing downstream is reached:
+  no post needs a graph, so no element is routed and no `AudioContext` is created. Turned off
+  mid-session, corrections already in the graph ramp to unity rather than being torn out.
+  `?normalize=0`/`?normalize=1` override it for one page load and are never persisted; touching
+  the switch clears the override. Not an alias of `?boost=0`, which forbids only the graph.
+- The row is drawn only where a correction can reach the speakers by either route, so the iOS
+  family does not get it: no graph, and `volume` ignored, means no position of the switch changes
+  a post. The platform is named in that decision rather than inferred from the volume probe,
+  which iOS can answer wrongly. The URL flags are still read there, and still move the readout.
 - The graph is created only inside a gesture, never routed suspended, disconnected on unmount,
   silences the neighbours, and puts one limiter before the speakers.
 - The iOS family gets no graph at all, by user agent, and no flag brings one back there: its
@@ -188,7 +198,7 @@ Verified: `unit: tests/loudness.test.ts` for every decision; the graph itself `d
 Verified: `device`.
 
 - `?debug=1` (or the sheet's toggle) shows a live line for the slide on screen: index, ready and
-  network state, buffered seconds, the slide's flags, the gain readout (a number, `wait`, `off`,
+  network state, buffered seconds, the slide's flags, the gain readout (a number, `flat`, `wait`, `off`,
   or `deaf`), and how many media elements exist — the last one is the decoder-budget check.
 
 ## Server and index

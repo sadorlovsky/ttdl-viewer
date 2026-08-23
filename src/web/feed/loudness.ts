@@ -27,6 +27,12 @@
  * agent string. The iOS family is the exception and gets no graph at all — routing there costs
  * the playback rate, which `graphPermitted` explains.
  *
+ * All of it can be turned off, and off is genuinely off: `correctionFor` returns 0, which makes
+ * `needsGraph` false for every post, which means no element is routed and no `AudioContext` is
+ * ever created. Turned off partway through, the corrections already in the graph ramp to unity
+ * instead — the routing is a one-way door and does not need opening again, because a node at
+ * unity and an element that was never routed play the same post at the same level.
+ *
  * The measurements are why any of this is worth the trouble. Over four archives here — 98 posts
  * measured whole, 30 sampled from each of the others — the median post asks to be made *louder*:
  * +5.6 dB on one account, +4.4 on another, around 0 on the two balanced ones, and every archive
@@ -64,8 +70,16 @@ function amplitude(db: number): number {
  *
  * Only the amplification is capped. Attenuation cannot clip and cannot amplify a noise floor, so
  * there is nothing to protect against on the way down.
+ *
+ * `normalize` is the viewer's switch, and it is answered here rather than at the call sites so
+ * that everything downstream — whether a graph is needed, whether a context is worth creating —
+ * follows from the one number. Off means every post plays at whatever it was mastered at, which
+ * is the same answer an unmeasured post gets and is reached by the same route.
  */
-export function correctionFor(post: Post): number {
+export function correctionFor(post: Post, normalize: boolean): number {
+	if (!normalize) {
+		return 0;
+	}
 	const gain = post.loudnessGain;
 	// Null is an unmeasured post — an archive ttdl has not run `loudness` over, a post with no
 	// sound, a download that was cut short. All of them mean the same thing here.
@@ -149,6 +163,38 @@ function appleTouch(): boolean {
 }
 
 /**
+ * What `?normalize=` says about this page load, or null if it says nothing.
+ *
+ * Two flags rather than one, because they turn off different things. `?boost=0` forbids the
+ * *graph* and leaves `volume` doing whatever it can, which on a browser that honours it is still
+ * every loud post pulled down — it is a hatch for a device the graph misbehaves on, and it is
+ * documented as one. This forbids the *correction*, which is the thing a viewer means.
+ *
+ * On the iOS family the difference is moot in the speakers and not on the screen: there is no
+ * graph to forbid and `volume` is ignored, so no correction lands either way and what this
+ * changes is the reading — `flat`, a post played as mastered, rather than the `deaf`/`off` pair,
+ * which is a correction that was asked for and went nowhere. The sheet draws no switch there, for
+ * that reason (see `correctionReaches`); the flag is still read, because it costs nothing and the
+ * reading is what a bug report carries.
+ *
+ * An override for one page load and nothing more: it is read into the store and never written
+ * back, so a link somebody was sent cannot permanently change a setting on their machine. The
+ * switch in the sheet clears it — see `setNormalize`.
+ *
+ * Pure, and takes what it reads, for the same reason `graphPermitted` is.
+ */
+export function normalizeOverride(search: string): boolean | null {
+	const asked = new URLSearchParams(search).get("normalize");
+	if (asked === "0") {
+		return false;
+	}
+	if (asked === "1") {
+		return true;
+	}
+	return null;
+}
+
+/**
  * The same answer, asked of this page once and then kept.
  *
  * Not at import: a module that reads the URL merely because it was loaded cannot be loaded
@@ -186,6 +232,44 @@ function honoursVolume(element?: HTMLMediaElement): boolean {
 		probe.volume = before;
 	}
 	return honoured;
+}
+
+/**
+ * Whether a correction can reach the speakers by either route.
+ *
+ * The sheet asks, so that the switch is offered only where it does something: a control whose
+ * position a platform has already decided is worse than no control. On the iOS family both routes
+ * are closed — the graph is banned, `volume` is ignored — so a post plays as it was mastered
+ * whichever way the switch is set.
+ *
+ * iOS is named here rather than left to the two flags, because one of them cannot see it: a
+ * `volume` getter that stores what the sound ignores answers "volume works", which is the blind
+ * spot `graphPermitted` stopped relying on. Said once more, in the one other place it decides
+ * something.
+ *
+ * Pure, and takes what it reads, for the same reason `graphPermitted` is.
+ */
+export function correctionReaches(
+	graph: boolean,
+	volumeWorks: boolean,
+	appleTouch: boolean,
+): boolean {
+	if (appleTouch) {
+		return false;
+	}
+	return graph || volumeWorks;
+}
+
+/**
+ * The same answer, asked of this browser.
+ *
+ * `graphAllowed` rather than `graphPermitted` on purpose: the flag it reads is gone from the URL
+ * by the time a sheet can be opened, and the memo is what still holds it. Safe to ask from a
+ * render for the same reason — a sheet is opened from a slide, and a slide has already asked
+ * through `setLevel`.
+ */
+export function correctionPossible(): boolean {
+	return correctionReaches(graphAllowed(), honoursVolume(), appleTouch());
 }
 
 /** The one context. Created only by a gesture — see `resumeAudio`. */
@@ -244,7 +328,7 @@ const graphs = new WeakMap<
  */
 const levels = new Map<
 	HTMLMediaElement,
-	{ correction: number; volume: number; audible: boolean }
+	{ correction: number; volume: number; audible: boolean; normalize: boolean }
 >();
 
 /**
@@ -295,14 +379,16 @@ function render(element: HTMLMediaElement): void {
 	const nodes = graphs.get(element);
 	if (nodes && ctx) {
 		// The graph carries everything, so the element itself plays flat. Both must not apply the
-		// same correction — that would be a post pulled down twice.
+		// same correction — that would be a post pulled down twice. With the switch off the
+		// correction is 0 and this ramps to unity, which is a routed element playing the post at
+		// exactly the level an unrouted one would.
 		element.volume = 1;
 		nodes.gain.gain.setTargetAtTime(
 			nodeGain(level.correction, level.volume, level.audible),
 			ctx.currentTime,
 			RAMP,
 		);
-		element.dataset.gain = level.correction.toFixed(1);
+		element.dataset.gain = level.normalize ? level.correction.toFixed(1) : "flat";
 		return;
 	}
 	element.volume = elementVolume(level.correction, level.volume);
@@ -310,11 +396,18 @@ function render(element: HTMLMediaElement): void {
 	 * What the debug panel prints, and the only way to tell these apart from outside. A number
 	 * means the correction is on the post — through the node above, or through `volume` here,
 	 * which for a post being pulled down on a browser that honours it is the whole job. The words
-	 * are the ways it is not: `wait` for a graph that has not been built yet, `off` where the flag
-	 * forbade one, and `deaf` for the case that started all this — a correction written to
+	 * are the ways it is not: `flat` where the viewer turned the correction off, which is the one
+	 * that is not a limitation; `wait` for a graph that has not been built yet; `off` where the
+	 * flag forbade one; and `deaf` for the case that started all this — a correction written to
 	 * `volume` on a browser which ignores `volume`, and therefore not applied at all.
+	 *
+	 * `flat` is asked first and separately, because every one of the others would otherwise answer
+	 * for it: a switched-off post has a correction of 0, so it needs no graph and would print
+	 * `0.0` — indistinguishable from a post that asked for nothing.
 	 */
-	if (!needsGraph(level.correction, honoursVolume(element))) {
+	if (!level.normalize) {
+		element.dataset.gain = "flat";
+	} else if (!needsGraph(level.correction, honoursVolume(element))) {
 		element.dataset.gain = level.correction.toFixed(1);
 	} else if (!graphAllowed(element)) {
 		element.dataset.gain = honoursVolume(element) ? "off" : "deaf";
@@ -344,15 +437,21 @@ function flush(): void {
  *
  * `audible` is the slide saying whether this post is the one being watched, unmuted. Only that
  * one makes a sound; see `nodeGain` for why the element's own `muted` is not enough.
+ *
+ * `normalize` is the viewer's switch, passed in rather than read from the store here: this module
+ * is the one part of the feature that can be tested without a browser, and it keeps that by
+ * taking every input it acts on. It is kept on the record as well as folded into the correction,
+ * because the two are the same number to the speakers and different answers to `?debug=1`.
  */
 export function setLevel(
 	element: HTMLMediaElement,
 	post: Post,
 	volume: number,
 	audible: boolean,
+	normalize: boolean,
 ): void {
-	const correction = correctionFor(post);
-	levels.set(element, { correction, volume, audible });
+	const correction = correctionFor(post, normalize);
+	levels.set(element, { correction, volume, audible, normalize });
 	if (graphAllowed(element) && needsGraph(correction, honoursVolume(element))) {
 		connect(element);
 	}
@@ -385,9 +484,13 @@ export function releaseLevel(element: HTMLMediaElement): void {
  * This is the whole reason the graph is affordable. A context created during a real gesture is
  * allowed to start running; one created at any other moment starts suspended, and every post
  * waiting to be corrected would sit in `levels` until something else woke it.
+ *
+ * With the switch off there is nothing to wake, and no context is created at all — a viewer who
+ * turned the correction off is not paying for an audio graph on every tap. Turning it back on is
+ * itself a click, and the switch spends it here; see the sheet.
  */
-export function resumeAudio(): void {
-	if (!graphAllowed()) {
+export function resumeAudio(normalize: boolean): void {
+	if (!normalize || !graphAllowed()) {
 		return;
 	}
 	if (!ctx) {

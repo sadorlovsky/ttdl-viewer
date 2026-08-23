@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Post } from "../../shared/types.ts";
 import { PlayIcon } from "../components/Icons.tsx";
-import { usePlayer } from "../store/player.ts";
+import { normalizeOn, usePlayer } from "../store/player.ts";
 import { BOOST_ZONE, boostedRate } from "./boost.ts";
 import type { SlideControls } from "./controls.ts";
 import { releaseLevel, setLevel } from "./loudness.ts";
@@ -140,6 +140,7 @@ export function VideoSlide({
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const muted = usePlayer((state) => state.muted);
 	const volume = usePlayer((state) => state.volume);
+	const normalize = usePlayer(normalizeOn);
 	const rate = usePlayer((state) => state.rate);
 	const autoAdvance = usePlayer((state) => state.autoAdvance);
 	const mute = usePlayer((state) => state.mute);
@@ -295,7 +296,7 @@ export function VideoSlide({
 		video.muted = muted;
 		// Only the post being watched makes a sound, and it says so here rather than through
 		// `video.muted`: a routed element's flags may never reach the graph. See loudness.ts.
-		setLevel(video, post, volume, active && !muted);
+		setLevel(video, post, volume, active && !muted, normalize);
 		/*
 		 * Both, and `defaultPlaybackRate` is the one that matters.
 		 *
@@ -311,7 +312,7 @@ export function VideoSlide({
 		 */
 		video.defaultPlaybackRate = rate;
 		video.playbackRate = rate;
-	}, [muted, volume, rate, post, active]);
+	}, [muted, volume, rate, post, active, normalize]);
 
 	// The level above is applied to a graph when the browser needs one, and that record has to be
 	// dropped when the element goes: it is keyed on an element that is about to stop existing.
